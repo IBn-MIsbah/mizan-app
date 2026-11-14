@@ -1,0 +1,33 @@
+# IDE & local machine files
+*.iml
+.DS_Store
+Thumbs.db
+/.idea/
+!/.idea/codeStyles/
+!/.idea/runConfigurations/
+local.properties
+/local.properties
+
+# Gradle & Kotlin caches
+.gradle
+.kotlin
+/build
+/app/build
+/captures
+.externalNativeBuild
+.cxx
+
+# Build outputs
+*.apk
+*.aab
+*.ap_
+*.dex
+
+# Secrets & signing material
+.env
+.env.*
+!.env.example
+*.jks
+*.keystore
+debug.keystore
+google-services.json

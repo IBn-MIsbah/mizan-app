@@ -1,0 +1,6 @@
+{
+  "name": "Mizan",
+  "description": "Mizan (ميزان) — Native Android digital-discipline and intentional focus application.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

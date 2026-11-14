@@ -1,0 +1,1221 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 3,
+    "identityHash": "e4b9939691be3e854f2f72f1090b23e3",
+    "entities": [
+      {
+        "tableName": "commitments",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `lifecycle_state` TEXT NOT NULL, `next_step_choice` TEXT, `pin_verified` INTEGER, `created_at_dateIso` TEXT NOT NULL, `created_at_timeIso` TEXT NOT NULL, `created_at_epochMillis` INTEGER NOT NULL, `created_at_utcOffsetMinutes` INTEGER NOT NULL, `created_at_zoneId` TEXT NOT NULL, `activated_at_dateIso` TEXT, `activated_at_timeIso` TEXT, `activated_at_epochMillis` INTEGER, `activated_at_utcOffsetMinutes` INTEGER, `activated_at_zoneId` TEXT, `ends_at_dateIso` TEXT, `ends_at_timeIso` TEXT, `ends_at_epochMillis` INTEGER, `ends_at_utcOffsetMinutes` INTEGER, `ends_at_zoneId` TEXT, `completed_at_dateIso` TEXT, `completed_at_timeIso` TEXT, `completed_at_epochMillis` INTEGER, `completed_at_utcOffsetMinutes` INTEGER, `completed_at_zoneId` TEXT, `terminated_at_dateIso` TEXT, `terminated_at_timeIso` TEXT, `terminated_at_epochMillis` INTEGER, `terminated_at_utcOffsetMinutes` INTEGER, `terminated_at_zoneId` TEXT, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lifecycleState",
+            "columnName": "lifecycle_state",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "nextStepChoice",
+            "columnName": "next_step_choice",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "pinVerified",
+            "columnName": "pin_verified",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "createdAt.dateIso",
+            "columnName": "created_at_dateIso",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt.timeIso",
+            "columnName": "created_at_timeIso",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt.epochMillis",
+            "columnName": "created_at_epochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt.utcOffsetMinutes",
+            "columnName": "created_at_utcOffsetMinutes",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt.zoneId",
+            "columnName": "created_at_zoneId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "activatedAt.dateIso",
+            "columnName": "activated_at_dateIso",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "activatedAt.timeIso",
+            "columnName": "activated_at_timeIso",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "activatedAt.epochMillis",
+            "columnName": "activated_at_epochMillis",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "activatedAt.utcOffsetMinutes",
+            "columnName": "activated_at_utcOffsetMinutes",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "activatedAt.zoneId",
+            "columnName": "activated_at_zoneId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "endsAt.dateIso",
+            "columnName": "ends_at_dateIso",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "endsAt.timeIso",
+            "columnName": "ends_at_timeIso",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "endsAt.epochMillis",
+            "columnName": "ends_at_epochMillis",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "endsAt.utcOffsetMinutes",
+            "columnName": "ends_at_utcOffsetMinutes",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "endsAt.zoneId",
+            "columnName": "ends_at_zoneId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "completedAt.dateIso",
+            "columnName": "completed_at_dateIso",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "completedAt.timeIso",
+            "columnName": "completed_at_timeIso",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "completedAt.epochMillis",
+            "columnName": "completed_at_epochMillis",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "completedAt.utcOffsetMinutes",
+            "columnName": "completed_at_utcOffsetMinutes",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "completedAt.zoneId",
+            "columnName": "completed_at_zoneId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "terminatedAt.dateIso",
+            "columnName": "terminated_at_dateIso",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "terminatedAt.timeIso",
+            "columnName": "terminated_at_timeIso",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "terminatedAt.epochMillis",
+            "columnName": "terminated_at_epochMillis",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "terminatedAt.utcOffsetMinutes",
+            "columnName": "terminated_at_utcOffsetMinutes",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "terminatedAt.zoneId",
+            "columnName": "terminated_at_zoneId",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_commitments_lifecycle_state",
+            "unique": false,
+            "columnNames": [
+              "lifecycle_state"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_commitments_lifecycle_state` ON `${TABLE_NAME}` (`lifecycle_state`)"
+          }
+        ]
+      },
+      {
+        "tableName": "commitment_rules",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`commitment_id` TEXT NOT NULL, `restriction_mode` TEXT NOT NULL, `daily_allowance_millis` INTEGER NOT NULL, `require_pin_for_emergency` INTEGER NOT NULL, `website_filtering_enabled` INTEGER NOT NULL DEFAULT 0, `blocked_domain_categories_csv` TEXT NOT NULL DEFAULT '', PRIMARY KEY(`commitment_id`), FOREIGN KEY(`commitment_id`) REFERENCES `commitments`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "commitmentId",
+            "columnName": "commitment_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "restrictionMode",
+            "columnName": "restriction_mode",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dailyAllowanceMillis",
+            "columnName": "daily_allowance_millis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "requirePinForEmergencyTermination",
+            "columnName": "require_pin_for_emergency",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "websiteFilteringEnabled",
+            "columnName": "website_filtering_enabled",
+            "affinity": "INTEGER",
+            "notNull": true,
+            "defaultValue": "0"
+          },
+          {
+            "fieldPath": "blockedDomainCategoriesCsv",
+            "columnName": "blocked_domain_categories_csv",
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "''"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "commitment_id"
+          ]
+        },
+        "foreignKeys": [
+          {
+            "table": "commitments",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "commitment_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "restricted_apps",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `commitment_id` TEXT NOT NULL, `package_name` TEXT NOT NULL, `display_label` TEXT NOT NULL, FOREIGN KEY(`commitment_id`) REFERENCES `commitments`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "commitmentId",
+            "columnName": "commitment_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "packageName",
+            "columnName": "package_name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "displayLabel",
+            "columnName": "display_label",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_restricted_apps_commitment_id_package_name",
+            "unique": true,
+            "columnNames": [
+              "commitment_id",
+              "package_name"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_restricted_apps_commitment_id_package_name` ON `${TABLE_NAME}` (`commitment_id`, `package_name`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "commitments",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "commitment_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "allowed_apps",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `commitment_id` TEXT NOT NULL, `package_name` TEXT NOT NULL, `display_label` TEXT NOT NULL, `category` TEXT NOT NULL, FOREIGN KEY(`commitment_id`) REFERENCES `commitments`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "commitmentId",
+            "columnName": "commitment_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "packageName",
+            "columnName": "package_name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "displayLabel",
+            "columnName": "display_label",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "category",
+            "columnName": "category",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_allowed_apps_commitment_id_package_name",
+            "unique": true,
+            "columnNames": [
+              "commitment_id",
+              "package_name"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_allowed_apps_commitment_id_package_name` ON `${TABLE_NAME}` (`commitment_id`, `package_name`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "commitments",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "commitment_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "schedule_windows",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `commitment_id` TEXT NOT NULL, `window_order` INTEGER NOT NULL, `days_of_week_csv` TEXT NOT NULL, `start_hour` INTEGER NOT NULL, `start_minute` INTEGER NOT NULL, `start_second` INTEGER NOT NULL, `end_hour` INTEGER NOT NULL, `end_minute` INTEGER NOT NULL, `end_second` INTEGER NOT NULL, FOREIGN KEY(`commitment_id`) REFERENCES `commitments`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "commitmentId",
+            "columnName": "commitment_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "windowOrder",
+            "columnName": "window_order",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "daysOfWeekCsv",
+            "columnName": "days_of_week_csv",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "startHour",
+            "columnName": "start_hour",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "startMinute",
+            "columnName": "start_minute",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "startSecond",
+            "columnName": "start_second",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "endHour",
+            "columnName": "end_hour",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "endMinute",
+            "columnName": "end_minute",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "endSecond",
+            "columnName": "end_second",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_schedule_windows_commitment_id",
+            "unique": false,
+            "columnNames": [
+              "commitment_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_schedule_windows_commitment_id` ON `${TABLE_NAME}` (`commitment_id`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "commitments",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "commitment_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "commitment_blocked_domains",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `commitment_id` TEXT NOT NULL, `normalized_domain` TEXT NOT NULL, `display_domain` TEXT NOT NULL, `category` TEXT NOT NULL, `rule_type` TEXT NOT NULL, FOREIGN KEY(`commitment_id`) REFERENCES `commitments`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "commitmentId",
+            "columnName": "commitment_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "normalizedDomain",
+            "columnName": "normalized_domain",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "displayDomain",
+            "columnName": "display_domain",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "category",
+            "columnName": "category",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ruleType",
+            "columnName": "rule_type",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_commitment_blocked_domains_commitment_id_normalized_domain_rule_type",
+            "unique": true,
+            "columnNames": [
+              "commitment_id",
+              "normalized_domain",
+              "rule_type"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_commitment_blocked_domains_commitment_id_normalized_domain_rule_type` ON `${TABLE_NAME}` (`commitment_id`, `normalized_domain`, `rule_type`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "commitments",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "commitment_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "filter_datasets",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`dataset_id` TEXT NOT NULL, `category` TEXT NOT NULL, `source_name` TEXT NOT NULL, `source_url` TEXT, `license` TEXT NOT NULL, `version_code` INTEGER NOT NULL, `updated_at_epoch_millis` INTEGER, `content_sha256` TEXT, `signature_algorithm` TEXT, `signature_value` TEXT, `record_count` INTEGER NOT NULL, `trust_status` TEXT NOT NULL, `last_error` TEXT, `limitations_note` TEXT NOT NULL, `previous_version_code` INTEGER, `previous_content_sha256` TEXT, PRIMARY KEY(`dataset_id`))",
+        "fields": [
+          {
+            "fieldPath": "datasetId",
+            "columnName": "dataset_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "category",
+            "columnName": "category",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sourceName",
+            "columnName": "source_name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sourceUrl",
+            "columnName": "source_url",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "license",
+            "columnName": "license",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "versionCode",
+            "columnName": "version_code",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAtEpochMillis",
+            "columnName": "updated_at_epoch_millis",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "contentSha256",
+            "columnName": "content_sha256",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "signatureAlgorithm",
+            "columnName": "signature_algorithm",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "signatureValue",
+            "columnName": "signature_value",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "recordCount",
+            "columnName": "record_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "trustStatus",
+            "columnName": "trust_status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastError",
+            "columnName": "last_error",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "limitationsNote",
+            "columnName": "limitations_note",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "previousVersionCode",
+            "columnName": "previous_version_code",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "previousContentSha256",
+            "columnName": "previous_content_sha256",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "dataset_id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_filter_datasets_category",
+            "unique": false,
+            "columnNames": [
+              "category"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_filter_datasets_category` ON `${TABLE_NAME}` (`category`)"
+          }
+        ]
+      },
+      {
+        "tableName": "filter_dataset_domains",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `dataset_id` TEXT NOT NULL, `normalized_domain` TEXT NOT NULL, `generation` TEXT NOT NULL, FOREIGN KEY(`dataset_id`) REFERENCES `filter_datasets`(`dataset_id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "datasetId",
+            "columnName": "dataset_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "normalizedDomain",
+            "columnName": "normalized_domain",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "generation",
+            "columnName": "generation",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_filter_dataset_domains_dataset_id_generation",
+            "unique": false,
+            "columnNames": [
+              "dataset_id",
+              "generation"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_filter_dataset_domains_dataset_id_generation` ON `${TABLE_NAME}` (`dataset_id`, `generation`)"
+          },
+          {
+            "name": "index_filter_dataset_domains_dataset_id_generation_normalized_domain",
+            "unique": true,
+            "columnNames": [
+              "dataset_id",
+              "generation",
+              "normalized_domain"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_filter_dataset_domains_dataset_id_generation_normalized_domain` ON `${TABLE_NAME}` (`dataset_id`, `generation`, `normalized_domain`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "filter_datasets",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "dataset_id"
+            ],
+            "referencedColumns": [
+              "dataset_id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "daily_usages",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `commitment_id` TEXT NOT NULL, `local_date` TEXT NOT NULL, `consumed_millis` INTEGER NOT NULL, `coverage_status` TEXT NOT NULL DEFAULT 'MEASURED', `incomplete_reason` TEXT, `last_reconciled_epoch_millis` INTEGER, FOREIGN KEY(`commitment_id`) REFERENCES `commitments`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "commitmentId",
+            "columnName": "commitment_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "localDate",
+            "columnName": "local_date",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "consumedMillis",
+            "columnName": "consumed_millis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "coverageStatus",
+            "columnName": "coverage_status",
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "'MEASURED'"
+          },
+          {
+            "fieldPath": "incompleteReason",
+            "columnName": "incomplete_reason",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "lastReconciledEpochMillis",
+            "columnName": "last_reconciled_epoch_millis",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_daily_usages_commitment_id_local_date",
+            "unique": true,
+            "columnNames": [
+              "commitment_id",
+              "local_date"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_daily_usages_commitment_id_local_date` ON `${TABLE_NAME}` (`commitment_id`, `local_date`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "commitments",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "commitment_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "usage_events",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`event_id` TEXT NOT NULL, `daily_usage_id` INTEGER NOT NULL, `commitment_id` TEXT NOT NULL, `package_name` TEXT NOT NULL, `foreground_duration_millis` INTEGER NOT NULL, `is_foreground` INTEGER NOT NULL, `local_date` TEXT NOT NULL, `source` TEXT NOT NULL DEFAULT 'ACCESSIBILITY_INTERVAL', `started_at_epoch_millis` INTEGER, `ended_at_epoch_millis` INTEGER, `zone_id` TEXT NOT NULL DEFAULT 'UTC', `boot_session_token` TEXT, PRIMARY KEY(`event_id`), FOREIGN KEY(`daily_usage_id`) REFERENCES `daily_usages`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`commitment_id`) REFERENCES `commitments`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "eventId",
+            "columnName": "event_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dailyUsageId",
+            "columnName": "daily_usage_id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "commitmentId",
+            "columnName": "commitment_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "packageName",
+            "columnName": "package_name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "foregroundDurationMillis",
+            "columnName": "foreground_duration_millis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isForeground",
+            "columnName": "is_foreground",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "localDate",
+            "columnName": "local_date",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "source",
+            "columnName": "source",
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "'ACCESSIBILITY_INTERVAL'"
+          },
+          {
+            "fieldPath": "startedAtEpochMillis",
+            "columnName": "started_at_epoch_millis",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "endedAtEpochMillis",
+            "columnName": "ended_at_epoch_millis",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "zoneId",
+            "columnName": "zone_id",
+            "affinity": "TEXT",
+            "notNull": true,
+            "defaultValue": "'UTC'"
+          },
+          {
+            "fieldPath": "bootSessionToken",
+            "columnName": "boot_session_token",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "event_id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_usage_events_daily_usage_id",
+            "unique": false,
+            "columnNames": [
+              "daily_usage_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_usage_events_daily_usage_id` ON `${TABLE_NAME}` (`daily_usage_id`)"
+          },
+          {
+            "name": "index_usage_events_commitment_id_local_date",
+            "unique": false,
+            "columnNames": [
+              "commitment_id",
+              "local_date"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_usage_events_commitment_id_local_date` ON `${TABLE_NAME}` (`commitment_id`, `local_date`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "daily_usages",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "daily_usage_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "commitments",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "commitment_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "active_usage_sessions",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `commitment_id` TEXT NOT NULL, `package_name` TEXT NOT NULL, `started_monotonic_millis` INTEGER NOT NULL, `boot_session_token` TEXT NOT NULL, `started_at_dateIso` TEXT NOT NULL, `started_at_timeIso` TEXT NOT NULL, `started_at_epochMillis` INTEGER NOT NULL, `started_at_utcOffsetMinutes` INTEGER NOT NULL, `started_at_zoneId` TEXT NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`commitment_id`) REFERENCES `commitments`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "commitmentId",
+            "columnName": "commitment_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "packageName",
+            "columnName": "package_name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "startedMonotonicMillis",
+            "columnName": "started_monotonic_millis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "bootSessionToken",
+            "columnName": "boot_session_token",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "startedAt.dateIso",
+            "columnName": "started_at_dateIso",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "startedAt.timeIso",
+            "columnName": "started_at_timeIso",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "startedAt.epochMillis",
+            "columnName": "started_at_epochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "startedAt.utcOffsetMinutes",
+            "columnName": "started_at_utcOffsetMinutes",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "startedAt.zoneId",
+            "columnName": "started_at_zoneId",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_active_usage_sessions_commitment_id",
+            "unique": false,
+            "columnNames": [
+              "commitment_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_active_usage_sessions_commitment_id` ON `${TABLE_NAME}` (`commitment_id`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "commitments",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "commitment_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "usage_integrity_state",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `last_wall_epoch_millis` INTEGER NOT NULL, `last_monotonic_millis` INTEGER NOT NULL, `last_boot_session_token` TEXT NOT NULL, `last_wall_date_iso` TEXT NOT NULL, `last_wall_time_iso` TEXT NOT NULL, `last_zone_id` TEXT NOT NULL, `last_utc_offset_minutes` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastWallEpochMillis",
+            "columnName": "last_wall_epoch_millis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastMonotonicMillis",
+            "columnName": "last_monotonic_millis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastBootSessionToken",
+            "columnName": "last_boot_session_token",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastWallDateIso",
+            "columnName": "last_wall_date_iso",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastWallTimeIso",
+            "columnName": "last_wall_time_iso",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastZoneId",
+            "columnName": "last_zone_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastUtcOffsetMinutes",
+            "columnName": "last_utc_offset_minutes",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "security_events",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `commitment_id` TEXT, `event_type` TEXT NOT NULL, `summary` TEXT, `occurred_at_dateIso` TEXT NOT NULL, `occurred_at_timeIso` TEXT NOT NULL, `occurred_at_epochMillis` INTEGER NOT NULL, `occurred_at_utcOffsetMinutes` INTEGER NOT NULL, `occurred_at_zoneId` TEXT NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`commitment_id`) REFERENCES `commitments`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "commitmentId",
+            "columnName": "commitment_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "eventType",
+            "columnName": "event_type",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "summary",
+            "columnName": "summary",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "occurredAt.dateIso",
+            "columnName": "occurred_at_dateIso",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "occurredAt.timeIso",
+            "columnName": "occurred_at_timeIso",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "occurredAt.epochMillis",
+            "columnName": "occurred_at_epochMillis",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "occurredAt.utcOffsetMinutes",
+            "columnName": "occurred_at_utcOffsetMinutes",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "occurredAt.zoneId",
+            "columnName": "occurred_at_zoneId",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_security_events_commitment_id",
+            "unique": false,
+            "columnNames": [
+              "commitment_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_security_events_commitment_id` ON `${TABLE_NAME}` (`commitment_id`)"
+          },
+          {
+            "name": "index_security_events_occurred_at_epochMillis",
+            "unique": false,
+            "columnNames": [
+              "occurred_at_epochMillis"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_security_events_occurred_at_epochMillis` ON `${TABLE_NAME}` (`occurred_at_epochMillis`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "commitments",
+            "onDelete": "SET NULL",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "commitment_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "accountability_metadata",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `is_pin_enabled` INTEGER NOT NULL, `updated_at_epoch_millis` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isPinEnabled",
+            "columnName": "is_pin_enabled",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAtEpochMillis",
+            "columnName": "updated_at_epoch_millis",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        }
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'e4b9939691be3e854f2f72f1090b23e3')"
+    ]
+  }
+}

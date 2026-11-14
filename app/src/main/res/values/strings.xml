@@ -1,0 +1,241 @@
+<resources>
+    <string name="app_name">Mizan</string>
+    <string name="brand_title">MIZAN</string>
+    <string name="brand_arabic">ميزان</string>
+    <string name="brand_tagline">Intentional digital balance</string>
+
+    <string name="nav_home">Balance</string>
+    <string name="nav_commitments">Setup</string>
+    <string name="nav_settings">Settings</string>
+
+    <!-- Common -->
+    <string name="retry_label">Reload</string>
+    <string name="back_label">Back</string>
+    <string name="close_label">Done</string>
+    <string name="error_generic">Unable to load local commitment data.</string>
+    <string name="status_not_active_notice_title">Milestone 6 Scope Notice</string>
+    <string name="status_not_active_notice_body">Foreground app blocking, local foreground usage measurement, shared Hybrid allowance accounting, optional UsageStats reconciliation, and optional on-device DNS-only website filtering (VPN) are active on-device. Remote category feed updates remain disabled until a signed feed and pinned public key are configured; Accountability PIN cryptography is deferred to Milestone 7.</string>
+
+    <!-- Accessibility Service & Enforcement Health -->
+    <string name="accessibility_service_label">Mizan App Restriction Monitor</string>
+    <string name="accessibility_service_summary">Detects when a restricted app enters the foreground during an active commitment</string>
+    <string name="accessibility_service_description">MIZAN uses this accessibility service strictly to detect the package name of the foreground app so it can present a blocking screen for apps you chose to restrict during an active commitment. MIZAN never reads screen text, captures screenshots, logs keystrokes, or uploads data off your device.</string>
+    <string name="health_card_title">App Enforcement Status</string>
+    <string name="health_badge_active">Enabled &amp; Connected</string>
+    <string name="health_badge_disconnected">Enabled · Disconnected</string>
+    <string name="health_badge_disabled">Accessibility Disabled</string>
+    <string name="health_badge_unavailable">Status Unavailable</string>
+    <string name="health_desc_active">Android Accessibility Service is enabled and connected. Restricted apps are evaluated against your local commitment rules in real time.</string>
+    <string name="health_desc_disconnected">MIZAN accessibility permission is enabled, but the system service is currently disconnected or interrupted. Open Accessibility Settings or check battery optimization to restore enforcement.</string>
+    <string name="health_desc_disabled">MIZAN cannot automatically grant accessibility access. Enable Mizan App Restriction Monitor in Android Accessibility Settings to enforce selected app restrictions.</string>
+    <string name="health_desc_unavailable">MIZAN could not verify system accessibility status or local rule state. Enforcement fails safely without blocking apps until state recovers.</string>
+    <string name="health_privacy_note">Privacy promise: MIZAN observes only foreground package transitions. It never reads window text, messages, passwords, or screenshots, and sends zero data off-device.</string>
+    <string name="health_open_settings_button">Open Accessibility Settings</string>
+    <string name="health_open_settings_error">Unable to open Android Accessibility Settings on this device.</string>
+
+    <!-- Usage Access & Reconciliation -->
+    <string name="usage_access_card_title">Usage Access &amp; Reconciliation</string>
+    <string name="usage_access_badge_enabled">Usage Access Enabled</string>
+    <string name="usage_access_badge_disabled">Usage Access Disabled</string>
+    <string name="usage_access_badge_unavailable">Usage Access Unavailable</string>
+    <string name="usage_access_desc_enabled">Android Usage Access is enabled. MIZAN can run local, deduplicated interval reconciliation using foreground and background timestamps for your selected restricted apps.</string>
+    <string name="usage_access_desc_disabled">Optional permission: granting Usage Access in Android Settings allows MIZAN to reconcile closed historical intervals for selected restricted apps after process restarts. While disabled, historical totals are not verified as complete.</string>
+    <string name="usage_access_desc_unavailable">MIZAN could not verify Android Usage Access status or history on this device. Usage measurement falls back safely without assuming missing totals are complete.</string>
+    <string name="usage_access_privacy_note">On-device guarantee: MIZAN reads only package names and foreground/background event timestamps for your commitment window. Unrelated apps are excluded, and no usage data leaves your device.</string>
+    <string name="usage_access_open_settings_button">Open Usage Access Settings</string>
+    <string name="usage_access_open_settings_error">Unable to open Android Usage Access Settings on this device.</string>
+
+    <!-- Local DNS / VPN Website Filtering -->
+    <string name="vpn_service_label">Mizan Local DNS Filter</string>
+    <string name="vpn_session_name">Mizan Local DNS Filter</string>
+    <string name="vpn_notification_channel_name">Local DNS Website Filtering</string>
+    <string name="vpn_notification_channel_desc">Shown while MIZAN filters configured domains locally on your device</string>
+    <string name="vpn_notification_title">Mizan Local DNS Filter Active</string>
+    <string name="vpn_notification_body">Filtering configured domains locally on-device. Non-DNS traffic bypasses this VPN.</string>
+    <string name="vpn_stop_action">Stop Filter</string>
+    <string name="vpn_error_establish_failed">Unable to establish Android local VPN interface. Confirm VPN permission is granted and no other VPN is active.</string>
+    <string name="vpn_card_title">Website &amp; Domain Filtering (Local VPN)</string>
+    <string name="vpn_badge_not_configured">Not Configured</string>
+    <string name="vpn_badge_permission_required">Permission Required</string>
+    <string name="vpn_badge_permission_denied">Permission Denied</string>
+    <string name="vpn_badge_ready_inactive">Ready · Inactive</string>
+    <string name="vpn_badge_starting">Starting…</string>
+    <string name="vpn_badge_active">Active</string>
+    <string name="vpn_badge_stopped_by_user">Stopped by User</string>
+    <string name="vpn_badge_revoked">Revoked</string>
+    <string name="vpn_badge_another_vpn">Another VPN Active</string>
+    <string name="vpn_badge_error">Degraded / Error</string>
+    <string name="vpn_desc_not_configured">No active commitment with website filtering rules is running. You can configure custom blocked domains or domain exceptions in Commitment Setup.</string>
+    <string name="vpn_desc_permission_required">Your active commitment includes website filtering, which is currently inactive because Android VPN authorization has not been granted yet.</string>
+    <string name="vpn_desc_permission_denied">Android VPN authorization was denied. Website DNS filtering is inactive; existing app blocking and allowance tracking remain unaffected.</string>
+    <string name="vpn_desc_ready_inactive">VPN authorization is available, but local DNS filtering is currently inactive.</string>
+    <string name="vpn_desc_starting">Establishing Android local DNS-only VPN tunnel…</string>
+    <string name="vpn_desc_active">Local DNS filtering tunnel is established on 10.120.0.1/32 (DNS queries only). Allowed queries are forwarded via your active network DNS resolvers; no MIZAN server is used.</string>
+    <string name="vpn_desc_stopped_by_user">Local DNS filtering was stopped by you. MIZAN will not silently restart it without your action.</string>
+    <string name="vpn_desc_revoked">MIZAN VPN permission was revoked by the system or user. Website filtering is inactive.</string>
+    <string name="vpn_desc_another_vpn">Another VPN is currently active on this device. Android permits only one active VPN at a time, so MIZAN DNS filtering is inactive.</string>
+    <string name="vpn_desc_error">Local DNS filtering encountered an error and stopped safely. App restriction enforcement and usage measurement remain active.</string>
+    <string name="vpn_disclosure_title">Before Enabling Local VPN Filtering</string>
+    <string name="vpn_disclosure_body">• MIZAN uses Android VPN permission strictly for local on-device DNS filtering.\n• Android allows only one active VPN at a time; enabling MIZAN may displace another VPN.\n• Filtering is domain-based only — not HTTPS URL-path or page-content filtering.\n• Encrypted DNS (Private DNS / DoH), hard-coded IPs, proxies, and other bypasses can circumvent DNS filtering.\n• Ordinary browsing traffic is NOT routed through a remote MIZAN server.\n• Shared domains (such as shared CDNs) can cause legitimate services to become inaccessible.</string>
+    <string name="vpn_consent_checkbox_label">I understand how MIZAN local DNS filtering works and its limitations.</string>
+    <string name="vpn_enable_start_button">Enable &amp; Start Local DNS Filter</string>
+    <string name="vpn_stop_button">Stop Local DNS Filter</string>
+    <string name="vpn_private_dns_warning">Warning: Android Private DNS (encrypted DNS-over-TLS) appears active on your network. Encrypted DNS bypasses local UDP port-53 VPN DNS filtering unless disabled in Android Network settings.</string>
+    <string name="vpn_upstream_info_format">Active network IPv4 DNS servers detected: %1$d (used strictly for allowed queries)</string>
+
+    <!-- Blocking Screen -->
+    <string name="blocking_active_badge">Restriction Active</string>
+    <string name="blocking_restricted_explanation">%1$s is currently restricted under your active MIZAN commitment.</string>
+    <string name="blocking_reason_strict">Mode: Strict — selected apps remain paused for the duration of your 7-day commitment.</string>
+    <string name="blocking_reason_scheduled">Mode: Scheduled window — this app is paused during your configured quiet hours.</string>
+    <string name="blocking_reason_allowance_exhausted">Mode: Hybrid — your shared daily allowance has been reached for today.</string>
+    <string name="blocking_commitment_ends_format">Commitment ends: %1$s</string>
+    <string name="blocking_neutral_reminder">Pause intentionally. Take a breath, return to your home screen, or open MIZAN to review your commitment.</string>
+    <string name="blocking_return_home_button">Return to Home Screen</string>
+    <string name="blocking_open_mizan_button">Open MIZAN</string>
+
+    <!-- Content descriptions -->
+    <string name="cd_brand_emblem">Mizan balance scale emblem</string>
+    <string name="cd_status_indicator">Commitment status indicator</string>
+    <string name="cd_privacy_icon">Local-only privacy indicator</string>
+    <string name="cd_warning_icon">Warning and confirmation indicator</string>
+    <string name="cd_schedule_icon">Schedule window indicator</string>
+    <string name="cd_theme_icon">Appearance theme indicator</string>
+    <string name="cd_permissions_icon">Android accessibility permissions indicator</string>
+    <string name="cd_architecture_icon">App and build information indicator</string>
+    <string name="cd_app_icon_fallback">Application icon</string>
+
+    <!-- Onboarding -->
+    <string name="onboarding_title">Intentional Technology Use</string>
+    <string name="onboarding_subtitle">MIZAN helps you set voluntary, calm boundaries on your own terms — without feeds, guilt, accounts, or tracking.</string>
+    <string name="onboarding_card_commitment_title">Voluntary 7-Day Commitments</string>
+    <string name="onboarding_card_commitment_body">Commitments begin as configurable drafts and remain inactive until you review every rule and deliberately agree. At the end of 7 days, nothing auto-renews — you decide your next step.</string>
+    <string name="onboarding_card_privacy_title">100% Local Data · No Account</string>
+    <string name="onboarding_card_privacy_body">Your commitments, rules, and preferences stay strictly on this device. MIZAN includes zero cloud sync, zero analytics, and zero advertisements.</string>
+    <string name="onboarding_card_permissions_title">Voluntary Android Permissions</string>
+    <string name="onboarding_card_permissions_body">To detect restricted apps entering the foreground and measure foreground usage, Android requires you to manually enable MIZAN in Accessibility Settings. You can also optionally grant Usage Access to reconcile historical usage intervals locally, and optionally grant local VPN permission if you choose DNS-based website filtering. MIZAN never reads screen text, typed input, or screenshots, and never stores or uploads DNS query history.</string>
+    <string name="onboarding_continue_button">Continue to Mizan</string>
+    <string name="onboarding_return_settings_button">Return to Settings</string>
+
+    <!-- Dashboard -->
+    <string name="dashboard_headline">Current Balance</string>
+    <string name="dashboard_subtitle">Your voluntary digital discipline state on this device.</string>
+    <string name="dashboard_empty_title">No Commitment Configured</string>
+    <string name="dashboard_empty_body">Design a 7-day voluntary commitment with clear boundaries, allowlisted essentials, and optional schedules. Rules remain inactive until you explicitly agree.</string>
+    <string name="dashboard_start_setup_action">Configure 7-Day Commitment</string>
+    <string name="dashboard_draft_badge">Draft Ready</string>
+    <string name="dashboard_draft_title">Draft Configuration Saved</string>
+    <string name="dashboard_draft_body">This draft is not active yet. Edit your rules or proceed to review and explicitly agree when ready.</string>
+    <string name="dashboard_edit_draft_action">Edit Setup</string>
+    <string name="dashboard_review_draft_action">Review &amp; Agree</string>
+    <string name="dashboard_active_badge">Active Commitment</string>
+    <string name="dashboard_active_ended_badge">7-Day Period Reached</string>
+    <string name="dashboard_active_ended_body">Your 7-day commitment window has elapsed. Review and record your completion choice — commitments never auto-renew.</string>
+    <string name="dashboard_complete_action">Complete Commitment</string>
+    <string name="dashboard_emergency_action">Emergency Termination</string>
+    <string name="dashboard_completed_badge">Completed</string>
+    <string name="dashboard_completed_title">7-Day Commitment Completed</string>
+    <string name="dashboard_choose_next_step_action">Choose Next Step</string>
+    <string name="dashboard_new_commitment_action">Configure New Commitment</string>
+    <string name="dashboard_terminated_badge">Emergency Terminated</string>
+    <string name="dashboard_terminated_title">Ended Early via Emergency Termination</string>
+    <string name="dashboard_terminated_body">This commitment ended before its planned 7-day completion date and is recorded separately from completed commitments.</string>
+    <string name="dashboard_history_title">Recent Commitments</string>
+    <string name="dashboard_allowance_note">Shared across all selected restricted apps and reset at local midnight.</string>
+    <string name="dashboard_usage_unavailable">Today\'s measured usage is unavailable due to a local storage read error.</string>
+    <string name="dashboard_usage_shared_exhausted">Shared Daily Allowance Exhausted (0m remaining)</string>
+
+    <!-- Setup -->
+    <string name="setup_headline">Commitment Setup</string>
+    <string name="setup_subtitle">Configure a voluntary 7-day commitment draft. Activation only happens after review and explicit agreement.</string>
+    <string name="setup_locked_title">Active Commitment Rules Locked</string>
+    <string name="setup_locked_body">To protect your commitment, modes, restricted apps, schedules, and daily allowance cannot be edited while a commitment is active.</string>
+    <string name="setup_go_dashboard">Back to Balance</string>
+    <string name="setup_mode_title">1. Restriction Mode</string>
+    <string name="setup_mode_strict_title">Strict</string>
+    <string name="setup_mode_strict_desc">Selected apps stay blocked throughout the 7-day commitment (overrides allowance).</string>
+    <string name="setup_mode_scheduled_title">Scheduled</string>
+    <string name="setup_mode_scheduled_desc">Selected apps are blocked only during your configured day and time windows.</string>
+    <string name="setup_mode_hybrid_title">Hybrid</string>
+    <string name="setup_mode_hybrid_desc">Scheduled blocking plus one shared daily allowance across selected restricted apps.</string>
+    <string name="setup_restricted_title">2. Restricted Apps</string>
+    <string name="setup_installed_apps_note">Showing launchable apps installed on this device (excluding MIZAN, system settings, and essential system tools). Social apps such as Instagram, TikTok, Reddit, or X appear only if installed.</string>
+    <string name="setup_installed_apps_empty">No third-party launchable apps were found via PackageManager on this profile. You can still enter a package ID manually below.</string>
+    <string name="setup_search_apps_hint">Filter installed apps by name or package</string>
+    <string name="setup_stale_app_badge">Not currently installed</string>
+    <string name="setup_allowlist_title">3. Essential Allowlist</string>
+    <string name="setup_allowlist_desc">Allowlisted apps always take precedence over restriction rules so essential tools stay accessible.</string>
+    <string name="setup_custom_app_label_hint">App name (e.g., Reading App)</string>
+    <string name="setup_custom_app_package_hint">Package ID (e.g., org.example.reader)</string>
+    <string name="setup_add_restricted_custom">Add Restricted App</string>
+    <string name="setup_add_allowed_custom">Add Allowlisted App</string>
+    <string name="setup_schedule_title">4. Schedule Windows</string>
+    <string name="setup_schedule_desc">Block restricted apps during chosen days and half-open [start, end) time windows. Overnight windows crossing midnight are supported.</string>
+    <string name="setup_schedule_add_button">Add Schedule Window</string>
+    <string name="setup_allowance_title">5. Shared Daily Allowance</string>
+    <string name="setup_allowance_desc">Shared across all selected restricted apps, reset at local midnight, and locked once activated. Default is 30 minutes.</string>
+    <string name="setup_website_title">6. Optional Website &amp; Domain Filtering</string>
+    <string name="setup_website_toggle_label">Enable local DNS-based domain filtering during this commitment</string>
+    <string name="setup_website_desc">Filter exact domains and their subdomains (e.g., example.com blocks example.com and sub.example.com without affecting notexample.com). Filtering is domain-only and best-effort via a local Android VPN interface.</string>
+    <string name="setup_website_domain_hint">Domain name (e.g., social.example)</string>
+    <string name="setup_website_add_block_button">Add Blocked Domain</string>
+    <string name="setup_website_add_allow_button">Add Allowed Exception</string>
+    <string name="setup_website_categories_title">Optional Domain Categories (Local Dataset Status)</string>
+    <string name="setup_website_category_social">Social Media Domains</string>
+    <string name="setup_website_category_adult">Adult Content Domains</string>
+    <string name="setup_future_features_title">Accountability PIN Notice</string>
+    <string name="setup_future_features_body">Accountability PIN Keystore hashing enforcement will be completed in Milestone 7.</string>
+    <string name="setup_save_draft_button">Save Draft</string>
+    <string name="setup_continue_review_button">Continue to Review</string>
+    <string name="setup_draft_saved_feedback">Draft saved locally.</string>
+
+    <!-- Review & Explicit Agreement -->
+    <string name="review_headline">Review &amp; Explicit Agreement</string>
+    <string name="review_subtitle">Carefully confirm every rule below before activating your 7-day commitment.</string>
+    <string name="review_duration_title">Duration &amp; Lifecycle</string>
+    <string name="review_duration_body">7 full days (168 hours from activation). Does not auto-renew at completion. Allowance and rules lock once activated.</string>
+    <string name="review_limitations_title">Enforcement &amp; Measurement Limitations</string>
+    <string name="review_limitations_body">App blocking and foreground usage measurement depend on Android Accessibility Settings (and optional Usage Access) and OEM background behavior. If website filtering is enabled, local DNS filtering requires user-consented Android VPN authorization, covers DNS domains only (not URL paths, content, Private DNS, proxies, or hard-coded IPs), and respects Android\'s one-active-VPN limit.</string>
+    <string name="review_agreement_label">I have reviewed the exact rules and current limitations, and I deliberately agree to activate this 7-day commitment.</string>
+    <string name="review_activate_button">Activate 7-Day Commitment</string>
+
+    <!-- Completion -->
+    <string name="completion_headline">Commitment Completed</string>
+    <string name="completion_subtitle">Your 7-day window has finished. MIZAN never auto-renews; choose your deliberate next step.</string>
+    <string name="completion_choice_finish_title">Finish</string>
+    <string name="completion_choice_finish_desc">Conclude this commitment cleanly and return to your Balance dashboard.</string>
+    <string name="completion_choice_another_title">Begin Another 7-Day Detox</string>
+    <string name="completion_choice_another_desc">Keep this completed record intact and create a fresh draft with new rules and a new agreement.</string>
+    <string name="completion_choice_discipline_title">Enter Discipline Mode</string>
+    <string name="completion_choice_discipline_desc">Record your intention for ongoing discipline mode (note: discipline-mode enforcement rules are pending future product specification).</string>
+    <string name="completion_discipline_recorded_note">Discipline Mode choice recorded locally. Enforcement behavior for Discipline Mode is pending specification in a future milestone.</string>
+
+    <!-- Emergency Termination -->
+    <string name="emergency_headline">Emergency Termination</string>
+    <string name="emergency_subtitle">End an active commitment immediately before its 7-day period completes.</string>
+    <string name="emergency_consequence_title">What Emergency Termination Means</string>
+    <string name="emergency_consequence_body">Your commitment will end immediately and be recorded locally as Emergency Terminated — separate from a normal 7-day completion. Rules will no longer apply.</string>
+    <string name="emergency_pin_blocked_title">PIN Authorization Required (Unavailable)</string>
+    <string name="emergency_pin_blocked_body">Accountability PIN protection is enabled for this commitment or accountability state, and PIN verification is not yet implemented. Termination is blocked rather than bypassed.</string>
+    <string name="emergency_confirm_checkbox_label">I understand this will immediately end my active commitment early and record an emergency termination.</string>
+    <string name="emergency_confirm_button">Confirm Emergency Termination</string>
+
+    <!-- Settings & Privacy -->
+    <string name="settings_headline">Settings &amp; Privacy</string>
+    <string name="settings_subtitle">Local preferences, privacy guarantees, and enforcement service health.</string>
+    <string name="settings_theme_title">Appearance Theme</string>
+    <string name="settings_theme_system">System</string>
+    <string name="settings_theme_light">Light</string>
+    <string name="settings_theme_dark">Dark</string>
+    <string name="settings_filter_pref_title">Filter Datasets &amp; Update Policy</string>
+    <string name="settings_filter_wifi_only_label">Update local filter datasets on Wi-Fi only</string>
+    <string name="settings_filter_wifi_only_note">Remote category dataset updates remain disabled because no signed external feed and pinned public verification key are configured. Custom blocked and allowlisted domains work 100% offline.</string>
+    <string name="settings_privacy_title">Local-Data Privacy Guarantee</string>
+    <string name="settings_privacy_body">MIZAN stores all commitments, rules, and preferences exclusively in local Room and DataStore storage. MIZAN never stores DNS query history or browsing logs, and includes zero accounts, cloud sync, analytics, ads, or remote servers.</string>
+    <string name="settings_onboarding_revisit_button">Review Onboarding &amp; Permission Guide</string>
+    <string name="settings_permissions_title">Android Permissions &amp; Health</string>
+    <string name="settings_permissions_body">App restriction and live foreground timing require manual Accessibility Service opt-in. Optional Usage Access enables local interval reconciliation, and optional local VPN authorization enables on-device DNS domain filtering.</string>
+    <string name="settings_build_title">Application &amp; Scope Info</string>
+    <string name="settings_item_package">Application ID</string>
+    <string name="settings_item_version">Version</string>
+</resources>
