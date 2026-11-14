@@ -4,11 +4,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
@@ -16,9 +14,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Security
 import androidx.compose.material.icons.outlined.Timer
+import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -35,9 +33,14 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.R
 import com.example.core.designsystem.component.MizanBrandHeader
+import com.example.core.designsystem.component.MizanExplanationSlide
 import com.example.core.designsystem.component.MizanFlowTopBar
 import com.example.core.designsystem.component.MizanScopeNoticeCard
+import com.example.core.designsystem.component.MizanSlideDeck
 import com.example.core.designsystem.component.MizanSurfaceCard
+import com.example.feature.guide.LocalSecurityBadgeVisual
+import com.example.feature.guide.ModeComparisonDemoVisual
+import com.example.feature.guide.OnboardingSetupDemoVisual
 import kotlinx.coroutines.flow.collectLatest
 
 @Composable
@@ -45,6 +48,7 @@ fun OnboardingRoute(
   onOnboardingCompleted: () -> Unit,
   onNavigateBack: () -> Unit,
   modifier: Modifier = Modifier,
+  onOpenUserGuide: (sectionId: String?, walkthroughMode: Boolean) -> Unit = { _, _ -> },
   viewModel: OnboardingViewModel = hiltViewModel(),
 ) {
   val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -61,6 +65,7 @@ fun OnboardingRoute(
     uiState = uiState,
     onContinue = viewModel::completeOnboarding,
     onNavigateBack = onNavigateBack,
+    onOpenUserGuide = onOpenUserGuide,
     modifier = modifier,
   )
 }
@@ -71,8 +76,65 @@ fun OnboardingScreen(
   onContinue: () -> Unit,
   onNavigateBack: () -> Unit,
   modifier: Modifier = Modifier,
+  onOpenUserGuide: (sectionId: String?, walkthroughMode: Boolean) -> Unit = { _, _ -> },
 ) {
   val state = uiState as OnboardingUiState.Ready
+  val commitmentTitle = stringResource(R.string.onboarding_card_commitment_title)
+  val commitmentBody = stringResource(R.string.onboarding_card_commitment_body)
+  val privacyTitle = stringResource(R.string.onboarding_card_privacy_title)
+  val privacyBody = stringResource(R.string.onboarding_card_privacy_body)
+  val permissionsTitle = stringResource(R.string.onboarding_card_permissions_title)
+  val permissionsBody = stringResource(R.string.onboarding_card_permissions_body)
+
+  val onboardingSlides =
+    listOf(
+      MizanExplanationSlide(
+        id = "commitment",
+        heading = commitmentTitle,
+        explanation = commitmentBody,
+        icon = Icons.Outlined.Timer,
+        visualContent = { active, reduced ->
+          Box(modifier = Modifier.testTag("onboarding_commitment_card")) {
+            OnboardingSetupDemoVisual(isActive = active, reducedMotion = reduced)
+          }
+        },
+      ),
+      MizanExplanationSlide(
+        id = "modes",
+        heading = "Strict, Scheduled, or Hybrid",
+        explanation =
+          "Pick full 7-day blocking, quiet schedule windows, or a shared daily allowance pool — locked only after you review.",
+        icon = Icons.Outlined.Tune,
+        visualContent = { active, reduced ->
+          ModeComparisonDemoVisual(isActive = active, reducedMotion = reduced)
+        },
+      ),
+      MizanExplanationSlide(
+        id = "privacy",
+        heading = privacyTitle,
+        explanation = privacyBody,
+        icon = Icons.Outlined.Lock,
+        visualContent = { _, _ ->
+          Box(modifier = Modifier.testTag("onboarding_privacy_card")) {
+            LocalSecurityBadgeVisual()
+          }
+        },
+      ),
+      MizanExplanationSlide(
+        id = "permissions",
+        heading = permissionsTitle,
+        explanation = permissionsBody,
+        icon = Icons.Outlined.Security,
+        visualContent = { _, _ ->
+          Text(
+            text = "Accessibility (live blocking), optional Usage Access, and optional local VPN DNS filter.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.testTag("onboarding_permissions_card"),
+          )
+        },
+      ),
+    )
 
   Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
     LazyColumn(
@@ -108,33 +170,25 @@ fun OnboardingScreen(
       }
 
       item {
-        OnboardingInfoCard(
-          icon = Icons.Outlined.Timer,
-          iconDescription = stringResource(R.string.cd_status_indicator),
-          title = stringResource(R.string.onboarding_card_commitment_title),
-          body = stringResource(R.string.onboarding_card_commitment_body),
-          modifier = Modifier.testTag("onboarding_commitment_card"),
+        MizanSlideDeck(
+          slides = onboardingSlides,
+          testTagPrefix = "onboarding_slide_deck",
+          skipLabel = stringResource(R.string.onboarding_continue_button),
+          onSkip = if (state.revisitFromSettings) null else onContinue,
         )
       }
 
       item {
-        OnboardingInfoCard(
-          icon = Icons.Outlined.Lock,
-          iconDescription = stringResource(R.string.cd_privacy_icon),
-          title = stringResource(R.string.onboarding_card_privacy_title),
-          body = stringResource(R.string.onboarding_card_privacy_body),
-          modifier = Modifier.testTag("onboarding_privacy_card"),
-        )
-      }
-
-      item {
-        OnboardingInfoCard(
-          icon = Icons.Outlined.Security,
-          iconDescription = stringResource(R.string.cd_permissions_icon),
-          title = stringResource(R.string.onboarding_card_permissions_title),
-          body = stringResource(R.string.onboarding_card_permissions_body),
-          modifier = Modifier.testTag("onboarding_permissions_card"),
-        )
+        OutlinedButton(
+          onClick = { onOpenUserGuide(null, true) },
+          modifier =
+            Modifier.fillMaxWidth()
+              .minimumInteractiveComponentSize()
+              .heightIn(min = 48.dp)
+              .testTag("onboarding_open_walkthrough_button"),
+        ) {
+          Text(text = stringResource(R.string.guide_walkthrough_start_button))
+        }
       }
 
       item { MizanScopeNoticeCard() }
@@ -187,38 +241,5 @@ fun OnboardingScreen(
         }
       }
     }
-  }
-}
-
-@Composable
-private fun OnboardingInfoCard(
-  icon: androidx.compose.ui.graphics.vector.ImageVector,
-  iconDescription: String,
-  title: String,
-  body: String,
-  modifier: Modifier = Modifier,
-) {
-  MizanSurfaceCard(modifier = modifier) {
-    Row(
-      verticalAlignment = Alignment.CenterVertically,
-      horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-      Icon(
-        imageVector = icon,
-        contentDescription = iconDescription,
-        tint = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.size(22.dp),
-      )
-      Text(
-        text = title,
-        style = MaterialTheme.typography.titleMedium,
-        color = MaterialTheme.colorScheme.onSurface,
-      )
-    }
-    Text(
-      text = body,
-      style = MaterialTheme.typography.bodyMedium,
-      color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
   }
 }

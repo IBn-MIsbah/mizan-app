@@ -36,6 +36,8 @@ constructor(private val dataStore: DataStore<Preferences>) {
           wifiOnlyFilterUpdates = prefs[KEY_WIFI_ONLY_FILTER_UPDATES] ?: true,
           websiteFilteringConsented = prefs[KEY_WEBSITE_FILTERING_CONSENTED] ?: false,
           vpnStoppedByUser = prefs[KEY_VPN_STOPPED_BY_USER] ?: false,
+          firstUseGuideCompleted = prefs[KEY_FIRST_USE_GUIDE_COMPLETED] ?: false,
+          reduceGuideAnimations = prefs[KEY_REDUCE_GUIDE_ANIMATIONS] ?: false,
         )
       }
 
@@ -59,6 +61,14 @@ constructor(private val dataStore: DataStore<Preferences>) {
     dataStore.edit { prefs -> prefs[KEY_VPN_STOPPED_BY_USER] = stoppedByUser }
   }
 
+  suspend fun setFirstUseGuideCompleted(completed: Boolean) {
+    dataStore.edit { prefs -> prefs[KEY_FIRST_USE_GUIDE_COMPLETED] = completed }
+  }
+
+  suspend fun setReduceGuideAnimations(reduce: Boolean) {
+    dataStore.edit { prefs -> prefs[KEY_REDUCE_GUIDE_ANIMATIONS] = reduce }
+  }
+
   internal fun decodeThemePreference(raw: String?): ThemePreference =
     ThemePreference.entries.firstOrNull { it.name == raw } ?: ThemePreference.SYSTEM
 
@@ -68,5 +78,7 @@ constructor(private val dataStore: DataStore<Preferences>) {
     val KEY_WIFI_ONLY_FILTER_UPDATES = booleanPreferencesKey("wifi_only_filter_updates")
     val KEY_WEBSITE_FILTERING_CONSENTED = booleanPreferencesKey("website_filtering_consented")
     val KEY_VPN_STOPPED_BY_USER = booleanPreferencesKey("vpn_stopped_by_user")
+    val KEY_FIRST_USE_GUIDE_COMPLETED = booleanPreferencesKey("first_use_guide_completed")
+    val KEY_REDUCE_GUIDE_ANIMATIONS = booleanPreferencesKey("reduce_guide_animations")
   }
 }

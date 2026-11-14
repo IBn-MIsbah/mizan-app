@@ -12,4 +12,6 @@ data class AppPreferences(
   val wifiOnlyFilterUpdates: Boolean = true,
   val websiteFilteringConsented: Boolean = false,
   val vpnStoppedByUser: Boolean = false,
+  val firstUseGuideCompleted: Boolean = false,
+  val reduceGuideAnimations: Boolean = false,
 )

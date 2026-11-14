@@ -20,6 +20,8 @@ import com.example.testing.FakeBatteryOptimizationMonitor
 import com.example.testing.FakeBootSessionProvider
 import com.example.testing.FakeCommitmentRepository
 import com.example.testing.FakeDailyUsageRepository
+import com.example.testing.FakeDatasetSyncController
+import com.example.testing.FakeDatasetUpdateScheduler
 import com.example.testing.FakeDomainFilterRepository
 import com.example.testing.FakeEnforcementHealthMonitor
 import com.example.testing.FakeIdGenerator
@@ -78,6 +80,8 @@ class SettingsViewModelTest {
           .commitment
       val commitmentRepo = FakeCommitmentRepository(listOf(active))
       val usageRepo = FakeDailyUsageRepository()
+      val datasetSyncController = FakeDatasetSyncController(domainFilterRepo)
+      val datasetUpdateScheduler = FakeDatasetUpdateScheduler()
       val viewModel =
         SettingsViewModel(
           userPreferencesRepository = prefsRepo,
@@ -86,6 +90,8 @@ class SettingsViewModelTest {
           batteryOptimizationMonitor = batteryMonitor,
           vpnFilterMonitor = vpnMonitor,
           domainFilterRepository = domainFilterRepo,
+          datasetSyncController = datasetSyncController,
+          datasetUpdateScheduler = datasetUpdateScheduler,
           commitmentRepository = commitmentRepo,
           accountabilityMetadataRepository = metadataRepo,
           accountabilityPinRepository = pinRepo,
@@ -105,6 +111,8 @@ class SettingsViewModelTest {
 
       viewModel.setThemePreference(ThemePreference.DARK)
       viewModel.setWifiOnlyFilterUpdates(false)
+      viewModel.setReduceGuideAnimations(true)
+      prefsRepo.setFirstUseGuideCompleted(true)
       usageAccessMonitor.systemStatus = UsageAccessPermissionStatus.ENABLED
       batteryMonitor.systemStatus = BatteryOptimizationStatus.UNRESTRICTED
       viewModel.refreshEnforcementHealth()
@@ -113,6 +121,9 @@ class SettingsViewModelTest {
       var ready = viewModel.uiState.value as SettingsUiState.Ready
       assertEquals(ThemePreference.DARK, ready.summary.preferences.themePreference)
       assertFalse(ready.summary.preferences.wifiOnlyFilterUpdates)
+      assertTrue(ready.summary.preferences.reduceGuideAnimations)
+      assertTrue(ready.summary.preferences.firstUseGuideCompleted)
+      assertEquals(listOf(false), datasetUpdateScheduler.syncCalls)
       assertEquals(ThemePreference.DARK, prefsRepo.preferences.first().themePreference)
       assertEquals(
         UsageAccessPermissionStatus.ENABLED,
@@ -122,6 +133,12 @@ class SettingsViewModelTest {
         BatteryOptimizationStatus.UNRESTRICTED,
         ready.summary.batteryOptimizationSnapshot.status,
       )
+
+      viewModel.replayFirstUseWalkthrough()
+      advanceUntilIdle()
+      ready = viewModel.uiState.value as SettingsUiState.Ready
+      assertFalse(ready.summary.preferences.firstUseGuideCompleted)
+      assertFalse(prefsRepo.preferences.first().firstUseGuideCompleted)
 
       // Configure PIN via Settings
       viewModel.onNewPinInputChange("2580")

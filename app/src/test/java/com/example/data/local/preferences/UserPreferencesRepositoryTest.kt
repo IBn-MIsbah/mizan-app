@@ -56,6 +56,8 @@ class UserPreferencesRepositoryTest {
         themePreference = ThemePreference.SYSTEM,
         onboardingCompleted = false,
         wifiOnlyFilterUpdates = true,
+        firstUseGuideCompleted = false,
+        reduceGuideAnimations = false,
       ),
       repository.preferences.first(),
     )
@@ -66,12 +68,16 @@ class UserPreferencesRepositoryTest {
     )
     assertEquals(PersistenceResult.Success(Unit), repository.setOnboardingCompleted(true))
     assertEquals(PersistenceResult.Success(Unit), repository.setWifiOnlyFilterUpdates(false))
+    assertEquals(PersistenceResult.Success(Unit), repository.setFirstUseGuideCompleted(true))
+    assertEquals(PersistenceResult.Success(Unit), repository.setReduceGuideAnimations(true))
 
     assertEquals(
       AppPreferences(
         themePreference = ThemePreference.DARK,
         onboardingCompleted = true,
         wifiOnlyFilterUpdates = false,
+        firstUseGuideCompleted = true,
+        reduceGuideAnimations = true,
       ),
       repository.preferences.first(),
     )

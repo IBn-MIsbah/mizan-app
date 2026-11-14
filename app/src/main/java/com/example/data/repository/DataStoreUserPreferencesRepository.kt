@@ -82,4 +82,28 @@ constructor(
         )
       }
     }
+
+  override suspend fun setFirstUseGuideCompleted(completed: Boolean): PersistenceResult<Unit> =
+    withContext(dispatcherProvider.io) {
+      try {
+        dataSource.setFirstUseGuideCompleted(completed)
+        PersistenceResult.Success(Unit)
+      } catch (_: IOException) {
+        PersistenceResult.Failure(
+          PersistenceError.StorageFailure("Failed to write guide completion preference")
+        )
+      }
+    }
+
+  override suspend fun setReduceGuideAnimations(reduce: Boolean): PersistenceResult<Unit> =
+    withContext(dispatcherProvider.io) {
+      try {
+        dataSource.setReduceGuideAnimations(reduce)
+        PersistenceResult.Success(Unit)
+      } catch (_: IOException) {
+        PersistenceResult.Failure(
+          PersistenceError.StorageFailure("Failed to write reduced-motion preference")
+        )
+      }
+    }
 }

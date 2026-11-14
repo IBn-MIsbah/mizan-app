@@ -16,4 +16,8 @@ interface UserPreferencesRepository {
   suspend fun setWebsiteFilteringConsented(consented: Boolean): PersistenceResult<Unit>
 
   suspend fun setVpnStoppedByUser(stoppedByUser: Boolean): PersistenceResult<Unit>
+
+  suspend fun setFirstUseGuideCompleted(completed: Boolean): PersistenceResult<Unit>
+
+  suspend fun setReduceGuideAnimations(reduce: Boolean): PersistenceResult<Unit>
 }

@@ -1,6 +1,8 @@
 package com.example.feature.settings
 
 import android.app.Activity
+import android.content.ContentResolver
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -16,11 +18,21 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.CloudOff
+import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Security
+import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material.icons.outlined.Wifi
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
+import androidx.compose.material.icons.outlined.Replay
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -36,6 +48,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -51,25 +64,43 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.R
 import com.example.core.designsystem.component.AccessibilityHealthCard
 import com.example.core.designsystem.component.BatteryOptimizationCard
+import com.example.core.designsystem.component.ContextualGuideSheet
+import com.example.core.designsystem.component.ContextualHelpButton
 import com.example.core.designsystem.component.MizanScopeNoticeCard
+import com.example.core.designsystem.component.MizanStatusBadge
 import com.example.core.designsystem.component.MizanSurfaceCard
 import com.example.core.designsystem.component.UsageAccessCard
 import com.example.core.designsystem.component.VpnFilterHealthCard
+import com.example.data.filter.SignedLocalDatasetImporter
+import com.example.domain.model.DatasetAvailabilityStatus
+import com.example.domain.model.DatasetStatusEvaluator
+import com.example.domain.model.DomainCategory
 import com.example.domain.model.ThemePreference
+import com.example.feature.guide.ContextualGuideCatalog
+import com.example.feature.guide.ContextualGuideContext
+import java.io.ByteArrayOutputStream
+import java.text.DateFormat
+import java.util.Date
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun SettingsRoute(
   onRevisitOnboarding: () -> Unit,
   modifier: Modifier = Modifier,
+  onOpenUserGuide: (sectionId: String?, walkthroughMode: Boolean) -> Unit = { _, _ -> },
   viewModel: SettingsViewModel = hiltViewModel(),
 ) {
   val uiState by viewModel.uiState.collectAsStateWithLifecycle()
   val context = LocalContext.current
+  val coroutineScope = rememberCoroutineScope()
   var settingsLaunchError by remember { mutableStateOf<String?>(null) }
   var usageSettingsLaunchError by remember { mutableStateOf<String?>(null) }
   var batterySettingsLaunchError by remember { mutableStateOf<String?>(null) }
   var appInfoLaunchError by remember { mutableStateOf<String?>(null) }
   var vpnActionError by remember { mutableStateOf<String?>(null) }
+  var datasetImportReadError by remember { mutableStateOf<String?>(null) }
   val launchErrorText = stringResource(R.string.health_open_settings_error)
   val usageLaunchErrorText = stringResource(R.string.usage_access_open_settings_error)
   val batteryLaunchErrorText = stringResource(R.string.battery_open_settings_error)
@@ -79,12 +110,37 @@ fun SettingsRoute(
       viewModel.onVpnPermissionResult(granted = result.resultCode == Activity.RESULT_OK)
     }
 
+  val datasetImportLauncher =
+    rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+      if (uri == null) return@rememberLauncherForActivityResult
+      datasetImportReadError = null
+      coroutineScope.launch {
+        val readResult =
+          withContext(Dispatchers.IO) {
+            runCatching {
+              readBoundedDocumentBytes(
+                contentResolver = context.contentResolver,
+                uri = uri,
+                maxAllowedBytes = SignedLocalDatasetImporter.MAX_PACKAGE_BYTES,
+              )
+            }
+          }
+        readResult
+          .onSuccess { bytes -> viewModel.importSignedDatasetPackage(bytes) }
+          .onFailure { error ->
+            datasetImportReadError =
+              error.message ?: "Unable to read the selected dataset file."
+          }
+      }
+    }
+
   LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
     settingsLaunchError = null
     usageSettingsLaunchError = null
     batterySettingsLaunchError = null
     appInfoLaunchError = null
     vpnActionError = null
+    datasetImportReadError = null
     viewModel.refreshEnforcementHealth()
   }
 
@@ -134,6 +190,25 @@ fun SettingsRoute(
     },
     onStopVpn = viewModel::requestStopVpnFiltering,
     vpnActionFeedback = vpnActionError,
+    onCheckDatasetUpdates = {
+      datasetImportReadError = null
+      viewModel.checkDatasetUpdatesNow()
+    },
+    onImportSignedDataset = {
+      datasetImportReadError = null
+      val launched =
+        runCatching {
+          datasetImportLauncher.launch(arrayOf("application/json", "text/plain", "*/*"))
+        }.isSuccess
+      if (!launched) {
+        datasetImportReadError = "Unable to open Android document picker on this device."
+      }
+    },
+    onRollbackDataset = { datasetId ->
+      datasetImportReadError = null
+      viewModel.rollbackDataset(datasetId)
+    },
+    datasetImportReadError = datasetImportReadError,
     onCurrentPinChange = viewModel::onCurrentPinInputChange,
     onNewPinChange = viewModel::onNewPinInputChange,
     onSavePin = viewModel::savePin,
@@ -149,6 +224,12 @@ fun SettingsRoute(
       }
     },
     appInfoLaunchError = appInfoLaunchError,
+    onOpenUserGuide = onOpenUserGuide,
+    onReplayWalkthrough = {
+      viewModel.replayFirstUseWalkthrough()
+      onOpenUserGuide(null, true)
+    },
+    onToggleReduceMotion = viewModel::setReduceGuideAnimations,
     modifier = modifier,
   )
 }
@@ -170,6 +251,10 @@ fun SettingsScreen(
   onEnableAndStartVpn: () -> Unit = {},
   onStopVpn: () -> Unit = {},
   vpnActionFeedback: String? = null,
+  onCheckDatasetUpdates: () -> Unit = {},
+  onImportSignedDataset: () -> Unit = {},
+  onRollbackDataset: (String) -> Unit = {},
+  datasetImportReadError: String? = null,
   onCurrentPinChange: (String) -> Unit = {},
   onNewPinChange: (String) -> Unit = {},
   onSavePin: () -> Unit = {},
@@ -179,7 +264,24 @@ fun SettingsScreen(
   onExecuteRemoval: () -> Unit = {},
   onOpenAppInfo: () -> Unit = {},
   appInfoLaunchError: String? = null,
+  onOpenUserGuide: (sectionId: String?, walkthroughMode: Boolean) -> Unit = { _, _ -> },
+  onReplayWalkthrough: () -> Unit = {},
+  onToggleReduceMotion: (Boolean) -> Unit = {},
 ) {
+  var activeHelpContext by remember { mutableStateOf<ContextualGuideContext?>(null) }
+
+  activeHelpContext?.let { helpContext ->
+    ContextualGuideSheet(
+      title = ContextualGuideCatalog.titleFor(helpContext),
+      slides = ContextualGuideCatalog.slidesFor(helpContext),
+      onDismiss = { activeHelpContext = null },
+      testTagPrefix = "settings_contextual_guide_sheet",
+      onOpenFullGuide = {
+        onOpenUserGuide(ContextualGuideCatalog.topicIdFor(helpContext), false)
+      },
+    )
+  }
+
   Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
     LazyColumn(
       modifier = Modifier.fillMaxWidth().widthIn(max = 640.dp).testTag("settings_screen_list"),
@@ -226,6 +328,90 @@ fun SettingsScreen(
                   style = MaterialTheme.typography.bodyMedium,
                   color = MaterialTheme.colorScheme.onErrorContainer,
                   modifier = Modifier.testTag("settings_error_text"),
+                )
+              }
+            }
+          }
+
+          item {
+            MizanSurfaceCard(modifier = Modifier.testTag("settings_help_guide_card")) {
+              Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+              ) {
+                Icon(
+                  imageVector = Icons.AutoMirrored.Outlined.MenuBook,
+                  contentDescription = null,
+                  tint = MaterialTheme.colorScheme.primary,
+                  modifier = Modifier.size(22.dp),
+                )
+                Text(
+                  text = stringResource(R.string.settings_help_guide_title),
+                  style = MaterialTheme.typography.titleMedium,
+                  color = MaterialTheme.colorScheme.onSurface,
+                )
+              }
+              Text(
+                text = stringResource(R.string.settings_help_guide_body),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+              )
+              Button(
+                onClick = { onOpenUserGuide(null, false) },
+                modifier =
+                  Modifier.fillMaxWidth()
+                    .minimumInteractiveComponentSize()
+                    .heightIn(min = 48.dp)
+                    .testTag("settings_open_guide_button"),
+              ) {
+                Icon(
+                  imageVector = Icons.AutoMirrored.Outlined.MenuBook,
+                  contentDescription = null,
+                  modifier = Modifier.size(18.dp),
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(text = stringResource(R.string.settings_open_guide_button))
+              }
+              OutlinedButton(
+                onClick = onReplayWalkthrough,
+                modifier =
+                  Modifier.fillMaxWidth()
+                    .minimumInteractiveComponentSize()
+                    .heightIn(min = 48.dp)
+                    .testTag("settings_replay_walkthrough_button"),
+              ) {
+                Icon(
+                  imageVector = Icons.Outlined.Replay,
+                  contentDescription = null,
+                  modifier = Modifier.size(18.dp),
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(text = stringResource(R.string.guide_replay_walkthrough_button))
+              }
+              HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+              Row(
+                modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {},
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+              ) {
+                Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                  Text(
+                    text = stringResource(R.string.settings_reduce_motion_label),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                  )
+                  Text(
+                    text = stringResource(R.string.settings_reduce_motion_note),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                  )
+                }
+                Switch(
+                  checked = summary.preferences.reduceGuideAnimations,
+                  onCheckedChange = onToggleReduceMotion,
+                  modifier =
+                    Modifier.minimumInteractiveComponentSize()
+                      .testTag("settings_reduce_motion_switch"),
                 )
               }
             }
@@ -281,6 +467,7 @@ fun SettingsScreen(
               onNewPinChange = onNewPinChange,
               onSavePin = onSavePin,
               onRemovePin = onRemovePin,
+              onShowHelp = { activeHelpContext = ContextualGuideContext.SETTINGS_SECURITY },
             )
           }
 
@@ -292,25 +479,38 @@ fun SettingsScreen(
               onExecuteRemoval = onExecuteRemoval,
               onOpenAppInfo = onOpenAppInfo,
               appInfoError = appInfoLaunchError,
+              onShowHelp = { activeHelpContext = ContextualGuideContext.SETTINGS_SECURITY },
             )
           }
 
           item {
             MizanSurfaceCard(modifier = Modifier.testTag("settings_filter_pref_card")) {
               Row(
+                modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
               ) {
-                Icon(
-                  imageVector = Icons.Outlined.Wifi,
-                  contentDescription = null,
-                  tint = MaterialTheme.colorScheme.secondary,
-                  modifier = Modifier.size(22.dp),
-                )
-                Text(
-                  text = stringResource(R.string.settings_filter_pref_title),
-                  style = MaterialTheme.typography.titleMedium,
-                  color = MaterialTheme.colorScheme.onSurface,
+                Row(
+                  modifier = Modifier.weight(1f),
+                  verticalAlignment = Alignment.CenterVertically,
+                  horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                  Icon(
+                    imageVector = Icons.Outlined.Wifi,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.secondary,
+                    modifier = Modifier.size(22.dp),
+                  )
+                  Text(
+                    text = stringResource(R.string.settings_filter_pref_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                  )
+                }
+                ContextualHelpButton(
+                  onClick = { activeHelpContext = ContextualGuideContext.SETTINGS_DATASETS },
+                  contentDescription = stringResource(R.string.guide_contextual_help_cd),
+                  testTag = "settings_dataset_help_button",
                 )
               }
               Row(
@@ -337,19 +537,88 @@ fun SettingsScreen(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
               )
-              if (summary.datasets.isNotEmpty()) {
+              val displayItems =
+                if (summary.datasetItems.isNotEmpty()) {
+                  summary.datasetItems
+                } else {
+                  val nowMs = System.currentTimeMillis()
+                  summary.datasets.map { meta ->
+                    DatasetManagementItem(
+                      metadata = meta,
+                      availabilityStatus =
+                        DatasetStatusEvaluator.evaluate(
+                          metadata = meta,
+                          isUpdating =
+                            meta.datasetId in summary.datasetSyncSnapshot.updatingDatasetIds,
+                          nowEpochMillis = nowMs,
+                        ),
+                    )
+                  }
+                }
+
+              if (displayItems.isNotEmpty()) {
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                summary.datasets.forEach { dataset ->
-                  Text(
-                    text =
-                      "${dataset.category.name.replace('_', ' ')}: ${dataset.trustStatus.name} " +
-                        "(${dataset.recordCount} entries · ${dataset.sourceName})",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.testTag("settings_dataset_${dataset.datasetId}"),
+                displayItems.forEach { item ->
+                  val dataset = item.metadata
+                  DatasetMetadataRow(
+                    item = item,
+                    isBusy = summary.datasetSyncSnapshot.isAnyUpdating,
+                    onRollback = { onRollbackDataset(dataset.datasetId) },
                   )
                 }
               }
+
+              OutlinedButton(
+                onClick = onCheckDatasetUpdates,
+                enabled = !summary.datasetSyncSnapshot.isAnyUpdating,
+                modifier =
+                  Modifier.fillMaxWidth()
+                    .minimumInteractiveComponentSize()
+                    .heightIn(min = 48.dp)
+                    .testTag("settings_dataset_check_updates_button"),
+              ) {
+                Text(text = stringResource(R.string.settings_dataset_check_updates_button))
+              }
+
+              OutlinedButton(
+                onClick = onImportSignedDataset,
+                enabled = !summary.datasetSyncSnapshot.isAnyUpdating,
+                modifier =
+                  Modifier.fillMaxWidth()
+                    .minimumInteractiveComponentSize()
+                    .heightIn(min = 48.dp)
+                    .testTag("settings_dataset_import_button"),
+              ) {
+                Text(text = stringResource(R.string.settings_dataset_import_button))
+              }
+
+              val syncFeedback =
+                datasetImportReadError
+                  ?: summary.datasetSyncSnapshot.errorMessage
+                  ?: summary.datasetSyncSnapshot.statusMessage
+              if (syncFeedback != null) {
+                val isError =
+                  datasetImportReadError != null ||
+                    summary.datasetSyncSnapshot.errorMessage != null
+                Text(
+                  text = syncFeedback,
+                  style = MaterialTheme.typography.bodySmall,
+                  color =
+                    if (isError) {
+                      MaterialTheme.colorScheme.error
+                    } else {
+                      MaterialTheme.colorScheme.primary
+                    },
+                  modifier = Modifier.testTag("settings_dataset_sync_feedback"),
+                )
+              }
+
+              Text(
+                text = stringResource(R.string.settings_dataset_limitations_note),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.testTag("settings_dataset_limitations_note"),
+              )
             }
           }
 
@@ -506,3 +775,159 @@ fun SettingsScreen(
     }
   }
 }
+
+@Composable
+private fun DatasetMetadataRow(
+  item: DatasetManagementItem,
+  isBusy: Boolean,
+  onRollback: () -> Unit,
+) {
+  val dataset = item.metadata
+  val status = item.availabilityStatus
+  val (icon, label, containerColor, contentColor) =
+    when (status) {
+      DatasetAvailabilityStatus.AVAILABLE ->
+        Quadruple(
+          Icons.Outlined.CheckCircle,
+          stringResource(R.string.settings_dataset_status_available),
+          MaterialTheme.colorScheme.primaryContainer,
+          MaterialTheme.colorScheme.onPrimaryContainer,
+        )
+      DatasetAvailabilityStatus.UPDATING ->
+        Quadruple(
+          Icons.Outlined.Sync,
+          stringResource(R.string.settings_dataset_status_updating),
+          MaterialTheme.colorScheme.secondaryContainer,
+          MaterialTheme.colorScheme.onSecondaryContainer,
+        )
+      DatasetAvailabilityStatus.OUTDATED ->
+        Quadruple(
+          Icons.Outlined.Schedule,
+          stringResource(R.string.settings_dataset_status_outdated),
+          MaterialTheme.colorScheme.tertiaryContainer,
+          MaterialTheme.colorScheme.onTertiaryContainer,
+        )
+      DatasetAvailabilityStatus.UNAVAILABLE ->
+        Quadruple(
+          Icons.Outlined.CloudOff,
+          stringResource(R.string.settings_dataset_status_unavailable),
+          MaterialTheme.colorScheme.surfaceContainerHighest,
+          MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+      DatasetAvailabilityStatus.FAILED ->
+        Quadruple(
+          Icons.Outlined.ErrorOutline,
+          stringResource(R.string.settings_dataset_status_failed),
+          MaterialTheme.colorScheme.errorContainer,
+          MaterialTheme.colorScheme.onErrorContainer,
+        )
+    }
+
+  val categoryLabel =
+    when (dataset.category) {
+      DomainCategory.ADULT_CONTENT -> "Adult Content"
+      DomainCategory.SOCIAL_MEDIA -> "Social Media"
+      DomainCategory.CUSTOM -> "Custom"
+    }
+
+  Column(
+    modifier = Modifier.fillMaxWidth().testTag("settings_dataset_${dataset.datasetId}"),
+    verticalArrangement = Arrangement.spacedBy(6.dp),
+  ) {
+    Row(
+      modifier = Modifier.fillMaxWidth(),
+      verticalAlignment = Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+      Text(
+        text = categoryLabel,
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.onSurface,
+        modifier = Modifier.weight(1f).padding(end = 8.dp),
+      )
+      MizanStatusBadge(
+        icon = icon,
+        label = label,
+        containerColor = containerColor,
+        contentColor = contentColor,
+        modifier = Modifier.testTag("settings_dataset_status_${dataset.datasetId}"),
+      )
+    }
+
+    val updatedSuffix =
+      dataset.updatedAtEpochMillis?.let { millis ->
+        val formatted = DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(millis))
+        " · Updated $formatted"
+      } ?: ""
+    Text(
+      text =
+        "v${dataset.versionCode} · ${dataset.recordCount} entries · ${dataset.sourceName}$updatedSuffix",
+      style = MaterialTheme.typography.bodySmall,
+      color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+
+    if (!dataset.lastError.isNullOrBlank()) {
+      val fallbackPrefix =
+        if (dataset.isUsable) {
+          "Using cached v${dataset.versionCode} (${dataset.recordCount} domains). Last update issue: "
+        } else {
+          ""
+        }
+      Text(
+        text = "$fallbackPrefix${dataset.lastError}",
+        style = MaterialTheme.typography.bodySmall,
+        color =
+          if (status == DatasetAvailabilityStatus.FAILED) {
+            MaterialTheme.colorScheme.error
+          } else {
+            MaterialTheme.colorScheme.onSurfaceVariant
+          },
+      )
+    }
+
+    val previousVersion = dataset.previousVersionCode
+    if (previousVersion != null) {
+      OutlinedButton(
+        onClick = onRollback,
+        enabled = !isBusy,
+        modifier =
+          Modifier.fillMaxWidth()
+            .minimumInteractiveComponentSize()
+            .heightIn(min = 48.dp)
+            .testTag("settings_dataset_rollback_${dataset.datasetId}"),
+      ) {
+        Text(text = stringResource(R.string.settings_dataset_rollback_format, previousVersion))
+      }
+    }
+  }
+}
+
+private data class Quadruple<A, B, C, D>(val first: A, val second: B, val third: C, val fourth: D)
+
+private fun readBoundedDocumentBytes(
+  contentResolver: ContentResolver,
+  uri: Uri,
+  maxAllowedBytes: Int,
+): ByteArray {
+  val stream =
+    contentResolver.openInputStream(uri)
+      ?: throw IllegalStateException("Selected document could not be opened.")
+  return stream.use { input ->
+    val output = ByteArrayOutputStream()
+    val buffer = ByteArray(8192)
+    var total = 0
+    while (true) {
+      val read = input.read(buffer)
+      if (read <= 0) break
+      total += read
+      if (total > maxAllowedBytes) {
+        throw IllegalStateException(
+          "Selected dataset file exceeds ${maxAllowedBytes / (1024 * 1024)} MB limit."
+        )
+      }
+      output.write(buffer, 0, read)
+    }
+    output.toByteArray()
+  }
+}
+

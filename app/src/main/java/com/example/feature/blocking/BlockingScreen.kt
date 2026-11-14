@@ -1,5 +1,7 @@
 package com.example.feature.blocking
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,18 +26,19 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.example.R
+import com.example.core.designsystem.component.LocalMizanReducedMotion
 import com.example.core.designsystem.component.MizanBrandHeader
 import com.example.core.designsystem.component.MizanStatusBadge
 import com.example.core.designsystem.component.MizanSurfaceCard
 import com.example.core.time.WallClockFormatting
 import com.example.domain.evaluator.RestrictionReason
-import com.example.domain.model.RestrictionMode
 
 @Composable
 fun BlockingScreen(
@@ -67,11 +70,18 @@ fun BlockingScreen(
             item { MizanBrandHeader() }
 
             item {
+              val reducedMotion = LocalMizanReducedMotion.current
+              val badgeBg by
+                animateColorAsState(
+                  targetValue = MaterialTheme.colorScheme.primaryContainer,
+                  animationSpec = tween(durationMillis = if (reducedMotion) 0 else 280),
+                  label = "blocking_badge_bg",
+                )
               MizanSurfaceCard(modifier = Modifier.testTag("blocking_main_card")) {
                 MizanStatusBadge(
                   icon = Icons.Filled.Lock,
                   label = stringResource(R.string.blocking_active_badge),
-                  containerColor = MaterialTheme.colorScheme.primaryContainer,
+                  containerColor = badgeBg,
                   contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                   modifier = Modifier.testTag("blocking_status_badge"),
                 )

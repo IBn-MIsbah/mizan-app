@@ -29,6 +29,9 @@ import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -40,8 +43,12 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.R
+import com.example.core.designsystem.component.ContextualGuideSheet
+import com.example.core.designsystem.component.ContextualHelpButton
 import com.example.core.designsystem.component.MizanFlowTopBar
 import com.example.core.designsystem.component.MizanSurfaceCard
+import com.example.feature.guide.ContextualGuideCatalog
+import com.example.feature.guide.ContextualGuideContext
 import kotlinx.coroutines.flow.collectLatest
 
 @Composable
@@ -49,6 +56,7 @@ fun EmergencyTerminationRoute(
   onNavigateBack: () -> Unit,
   onTerminated: () -> Unit,
   modifier: Modifier = Modifier,
+  onOpenUserGuide: (sectionId: String?, walkthroughMode: Boolean) -> Unit = { _, _ -> },
   viewModel: EmergencyTerminationViewModel = hiltViewModel(),
 ) {
   val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -67,6 +75,7 @@ fun EmergencyTerminationRoute(
     onConfirmTermination = viewModel::confirmTermination,
     onNavigateBack = onNavigateBack,
     onPinChanged = viewModel::setPinInput,
+    onOpenUserGuide = onOpenUserGuide,
     modifier = modifier,
   )
 }
@@ -79,7 +88,22 @@ fun EmergencyTerminationScreen(
   onNavigateBack: () -> Unit,
   modifier: Modifier = Modifier,
   onPinChanged: (String) -> Unit = {},
+  onOpenUserGuide: (sectionId: String?, walkthroughMode: Boolean) -> Unit = { _, _ -> },
 ) {
+  var showEmergencyGuide by remember { mutableStateOf(false) }
+
+  if (showEmergencyGuide) {
+    ContextualGuideSheet(
+      title = ContextualGuideCatalog.titleFor(ContextualGuideContext.EMERGENCY),
+      slides = ContextualGuideCatalog.slidesFor(ContextualGuideContext.EMERGENCY),
+      onDismiss = { showEmergencyGuide = false },
+      testTagPrefix = "emergency_contextual_guide_sheet",
+      onOpenFullGuide = {
+        onOpenUserGuide(ContextualGuideCatalog.topicIdFor(ContextualGuideContext.EMERGENCY), false)
+      },
+    )
+  }
+
   Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
     LazyColumn(
       modifier = Modifier.fillMaxWidth().widthIn(max = 640.dp).testTag("emergency_screen_list"),
@@ -87,11 +111,23 @@ fun EmergencyTerminationScreen(
       verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
       item {
-        MizanFlowTopBar(
-          title = stringResource(R.string.emergency_headline),
-          onNavigateBack = onNavigateBack,
-          backTestTag = "emergency_back_button",
-        )
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+          MizanFlowTopBar(
+            title = stringResource(R.string.emergency_headline),
+            onNavigateBack = onNavigateBack,
+            backTestTag = "emergency_back_button",
+            modifier = Modifier.weight(1f),
+          )
+          ContextualHelpButton(
+            onClick = { showEmergencyGuide = true },
+            contentDescription = stringResource(R.string.guide_contextual_help_cd),
+            testTag = "emergency_contextual_help_button",
+          )
+        }
       }
 
       item {

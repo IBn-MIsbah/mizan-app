@@ -17,8 +17,6 @@ import com.example.domain.repository.DomainDatasetSignatureVerifier
 import com.example.domain.repository.DomainFilterRepository
 import com.example.domain.repository.PersistenceError
 import com.example.domain.repository.PersistenceResult
-import com.example.domain.repository.RemoteDatasetUpdateResult
-import com.example.domain.repository.RemoteDatasetUpdater
 import com.example.domain.time.TimeProvider
 import java.security.MessageDigest
 import javax.inject.Inject
@@ -28,16 +26,6 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
-
-@Singleton
-class DisabledRemoteDatasetUpdater
-@Inject
-constructor() : RemoteDatasetUpdater {
-  override suspend fun checkAndUpdate(datasetId: String): RemoteDatasetUpdateResult =
-    RemoteDatasetUpdateResult.Disabled(
-      "Remote dataset updates are disabled until a signed dataset feed and pinned public verification key are configured."
-    )
-}
 
 @Singleton
 class RoomDomainFilterRepository
@@ -65,6 +53,17 @@ constructor(
           DatasetSeedDefaults.defaultMetadata().map { it.toEntity() }
         )
         PersistenceResult.Success(Unit)
+      } catch (t: Throwable) {
+        PersistenceResult.Failure(mapThrowable(t))
+      }
+    }
+
+  override suspend fun getDatasetMetadata(
+    datasetId: String,
+  ): PersistenceResult<FilterDatasetMetadata?> =
+    withContext(dispatcherProvider.io) {
+      try {
+        PersistenceResult.Success(domainFilterDao.getDatasetMetadata(datasetId)?.toDomain())
       } catch (t: Throwable) {
         PersistenceResult.Failure(mapThrowable(t))
       }
@@ -114,34 +113,55 @@ constructor(
   ): PersistenceResult<DatasetImportResult> =
     withContext(dispatcherProvider.io) {
       try {
-        if (rawPayloadBytes.isEmpty()) {
-          return@withContext PersistenceResult.Success(
-            DatasetImportResult.Rejected("Dataset payload is empty.")
-          )
-        }
-        if (rawPayloadBytes.size > MAX_DATASET_BYTES) {
-          return@withContext PersistenceResult.Success(
-            DatasetImportResult.Rejected(
-              "Dataset payload exceeds maximum size of ${MAX_DATASET_BYTES / (1024 * 1024)} MB."
-            )
-          )
+        val existing = domainFilterDao.getDatasetMetadata(datasetId)?.toDomain()
+
+        if (versionCode <= 0L) {
+          val reason = "Dataset versionCode must be positive."
+          recordRejectedStatus(existing, DatasetTrustStatus.CORRUPT_OR_REJECTED, reason)
+          return@withContext PersistenceResult.Success(DatasetImportResult.Rejected(reason))
         }
 
-        val existing = domainFilterDao.getDatasetMetadata(datasetId)?.toDomain()
+        if (rawPayloadBytes.isEmpty()) {
+          val reason = "Dataset payload is empty."
+          recordRejectedStatus(existing, DatasetTrustStatus.CORRUPT_OR_REJECTED, reason)
+          return@withContext PersistenceResult.Success(DatasetImportResult.Rejected(reason))
+        }
+        if (rawPayloadBytes.size > MAX_DATASET_BYTES) {
+          val reason =
+            "Dataset payload exceeds maximum size of ${MAX_DATASET_BYTES / (1024 * 1024)} MB."
+          recordRejectedStatus(existing, DatasetTrustStatus.CORRUPT_OR_REJECTED, reason)
+          return@withContext PersistenceResult.Success(DatasetImportResult.Rejected(reason))
+        }
+
         if (existing != null && versionCode < existing.versionCode) {
-          return@withContext PersistenceResult.Success(
-            DatasetImportResult.Rejected(
-              "Version rollback rejected ($versionCode < ${existing.versionCode})."
-            )
-          )
+          val reason = "Version rollback rejected ($versionCode < ${existing.versionCode})."
+          recordRejectedStatus(existing, DatasetTrustStatus.CORRUPT_OR_REJECTED, reason)
+          return@withContext PersistenceResult.Success(DatasetImportResult.Rejected(reason))
         }
 
         val actualSha256 = sha256Hex(rawPayloadBytes)
         if (!actualSha256.equals(expectedSha256.trim(), ignoreCase = true)) {
-          recordRejectedStatus(existing, DatasetTrustStatus.CORRUPT_OR_REJECTED, "SHA-256 checksum mismatch.")
+          recordRejectedStatus(
+            existing,
+            DatasetTrustStatus.CORRUPT_OR_REJECTED,
+            "SHA-256 checksum mismatch.",
+          )
           return@withContext PersistenceResult.Success(
             DatasetImportResult.Rejected("SHA-256 content integrity check failed.")
           )
+        }
+
+        if (
+          existing != null &&
+            existing.isUsable &&
+            versionCode == existing.versionCode &&
+            existing.contentSha256 != null &&
+            !actualSha256.equals(existing.contentSha256, ignoreCase = true)
+        ) {
+          val reason =
+            "Conflicting dataset payload rejected for already-installed version $versionCode."
+          recordRejectedStatus(existing, DatasetTrustStatus.CORRUPT_OR_REJECTED, reason)
+          return@withContext PersistenceResult.Success(DatasetImportResult.Rejected(reason))
         }
 
         if (requireSignature) {
@@ -184,25 +204,39 @@ constructor(
             is DomainNormalizationResult.Valid -> {
               parsedDomains.add(norm.normalizedHost)
               if (parsedDomains.size > MAX_DATASET_RECORDS) {
-                return@withContext PersistenceResult.Success(
-                  DatasetImportResult.Rejected(
-                    "Dataset exceeds record limit of $MAX_DATASET_RECORDS domains."
-                  )
-                )
+                val reason = "Dataset exceeds record limit of $MAX_DATASET_RECORDS domains."
+                recordRejectedStatus(existing, DatasetTrustStatus.CORRUPT_OR_REJECTED, reason)
+                return@withContext PersistenceResult.Success(DatasetImportResult.Rejected(reason))
               }
             }
             is DomainNormalizationResult.Invalid -> {
-              return@withContext PersistenceResult.Success(
-                DatasetImportResult.Rejected("Dataset contains invalid domain syntax.")
-              )
+              val reason = "Dataset contains invalid domain syntax."
+              recordRejectedStatus(existing, DatasetTrustStatus.CORRUPT_OR_REJECTED, reason)
+              return@withContext PersistenceResult.Success(DatasetImportResult.Rejected(reason))
             }
           }
         }
 
         if (parsedDomains.isEmpty()) {
-          return@withContext PersistenceResult.Success(
-            DatasetImportResult.Rejected("Dataset parsed zero valid domain entries.")
-          )
+          val reason = "Dataset parsed zero valid domain entries."
+          recordRejectedStatus(existing, DatasetTrustStatus.CORRUPT_OR_REJECTED, reason)
+          return@withContext PersistenceResult.Success(DatasetImportResult.Rejected(reason))
+        }
+
+        if (
+          existing != null &&
+            existing.isUsable &&
+            versionCode == existing.versionCode &&
+            actualSha256.equals(existing.contentSha256, ignoreCase = true)
+        ) {
+          val refreshed =
+            existing.copy(
+              updatedAtEpochMillis = timeProvider.currentWallClock().epochMillis,
+              lastError = null,
+              limitationsNote = limitationsNote,
+            )
+          domainFilterDao.upsertDatasetMetadata(refreshed.toEntity())
+          return@withContext PersistenceResult.Success(DatasetImportResult.Success(refreshed))
         }
 
         val now = timeProvider.currentWallClock()
@@ -231,6 +265,34 @@ constructor(
           domains = parsedDomains.toList(),
         )
         PersistenceResult.Success(DatasetImportResult.Success(verifiedMeta))
+      } catch (t: Throwable) {
+        PersistenceResult.Failure(mapThrowable(t))
+      }
+    }
+
+  override suspend fun recordDatasetUpdateFailure(
+    datasetId: String,
+    reason: String,
+    trustStatusOnEmpty: DatasetTrustStatus,
+  ): PersistenceResult<Unit> =
+    withContext(dispatcherProvider.io) {
+      try {
+        val existing = domainFilterDao.getDatasetMetadata(datasetId)?.toDomain()
+        recordRejectedStatus(existing, trustStatusOnEmpty, reason)
+        PersistenceResult.Success(Unit)
+      } catch (t: Throwable) {
+        PersistenceResult.Failure(mapThrowable(t))
+      }
+    }
+
+  override suspend fun clearDatasetError(datasetId: String): PersistenceResult<Unit> =
+    withContext(dispatcherProvider.io) {
+      try {
+        val existing = domainFilterDao.getDatasetMetadata(datasetId)?.toDomain()
+        if (existing != null && existing.isUsable && existing.lastError != null) {
+          domainFilterDao.upsertDatasetMetadata(existing.copy(lastError = null).toEntity())
+        }
+        PersistenceResult.Success(Unit)
       } catch (t: Throwable) {
         PersistenceResult.Failure(mapThrowable(t))
       }

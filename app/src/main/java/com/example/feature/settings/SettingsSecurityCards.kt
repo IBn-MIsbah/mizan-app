@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.PauseCircleOutline
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.Pin
 import androidx.compose.material.icons.outlined.Timer
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -24,8 +25,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -34,6 +40,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.example.R
+import com.example.core.designsystem.component.ContextualHelpButton
 import com.example.core.designsystem.component.MizanStatusBadge
 import com.example.core.designsystem.component.MizanSurfaceCard
 import com.example.core.time.WallClockFormatting
@@ -46,7 +53,46 @@ internal fun AccountabilityPinSettingsCard(
   onSavePin: () -> Unit,
   onRemovePin: () -> Unit,
   modifier: Modifier = Modifier,
+  onShowHelp: (() -> Unit)? = null,
 ) {
+  var showRemovePinConfirmDialog by remember { mutableStateOf(false) }
+
+  if (showRemovePinConfirmDialog) {
+    AlertDialog(
+      onDismissRequest = { showRemovePinConfirmDialog = false },
+      modifier = Modifier.testTag("settings_pin_remove_confirm_dialog"),
+      title = { Text(stringResource(R.string.settings_pin_remove_confirm_title)) },
+      text = { Text(stringResource(R.string.settings_pin_remove_confirm_body)) },
+      confirmButton = {
+        Button(
+          onClick = {
+            showRemovePinConfirmDialog = false
+            onRemovePin()
+          },
+          colors =
+            ButtonDefaults.buttonColors(
+              containerColor = MaterialTheme.colorScheme.error,
+              contentColor = MaterialTheme.colorScheme.onError,
+            ),
+          modifier =
+            Modifier.minimumInteractiveComponentSize()
+              .testTag("settings_pin_remove_confirm_button"),
+        ) {
+          Text(stringResource(R.string.settings_pin_remove_confirm_action))
+        }
+      },
+      dismissButton = {
+        TextButton(
+          onClick = { showRemovePinConfirmDialog = false },
+          modifier =
+            Modifier.minimumInteractiveComponentSize()
+              .testTag("settings_pin_remove_cancel_button"),
+        ) {
+          Text(stringResource(R.string.cancel_label))
+        }
+      },
+    )
+  }
   val (badgeIcon, badgeLabel, badgeBg, badgeFg) =
     when {
       !pinState.isPinEnabled ->
@@ -74,20 +120,34 @@ internal fun AccountabilityPinSettingsCard(
 
   MizanSurfaceCard(modifier = modifier.testTag("settings_pin_card")) {
     Row(
+      modifier = Modifier.fillMaxWidth(),
       verticalAlignment = Alignment.CenterVertically,
-      horizontalArrangement = Arrangement.spacedBy(10.dp),
+      horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-      Icon(
-        imageVector = Icons.Outlined.Pin,
-        contentDescription = stringResource(R.string.cd_privacy_icon),
-        tint = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.size(22.dp),
-      )
-      Text(
-        text = stringResource(R.string.settings_pin_title),
-        style = MaterialTheme.typography.titleMedium,
-        color = MaterialTheme.colorScheme.onSurface,
-      )
+      Row(
+        modifier = Modifier.weight(1f),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+      ) {
+        Icon(
+          imageVector = Icons.Outlined.Pin,
+          contentDescription = stringResource(R.string.cd_privacy_icon),
+          tint = MaterialTheme.colorScheme.primary,
+          modifier = Modifier.size(22.dp),
+        )
+        Text(
+          text = stringResource(R.string.settings_pin_title),
+          style = MaterialTheme.typography.titleMedium,
+          color = MaterialTheme.colorScheme.onSurface,
+        )
+      }
+      if (onShowHelp != null) {
+        ContextualHelpButton(
+          onClick = onShowHelp,
+          contentDescription = stringResource(R.string.guide_contextual_help_cd),
+          testTag = "settings_pin_help_button",
+        )
+      }
     }
 
     MizanStatusBadge(
@@ -178,7 +238,7 @@ internal fun AccountabilityPinSettingsCard(
 
     if (pinState.isPinEnabled) {
       OutlinedButton(
-        onClick = onRemovePin,
+        onClick = { showRemovePinConfirmDialog = true },
         enabled = !pinState.isSubmitting,
         colors =
           ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
@@ -203,23 +263,38 @@ internal fun VoluntaryRemovalRequestCard(
   onOpenAppInfo: () -> Unit,
   appInfoError: String? = null,
   modifier: Modifier = Modifier,
+  onShowHelp: (() -> Unit)? = null,
 ) {
   MizanSurfaceCard(modifier = modifier.testTag("settings_removal_card")) {
     Row(
+      modifier = Modifier.fillMaxWidth(),
       verticalAlignment = Alignment.CenterVertically,
-      horizontalArrangement = Arrangement.spacedBy(10.dp),
+      horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-      Icon(
-        imageVector = Icons.Outlined.Timer,
-        contentDescription = stringResource(R.string.cd_schedule_icon),
-        tint = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.size(22.dp),
-      )
-      Text(
-        text = stringResource(R.string.settings_removal_title),
-        style = MaterialTheme.typography.titleMedium,
-        color = MaterialTheme.colorScheme.onSurface,
-      )
+      Row(
+        modifier = Modifier.weight(1f),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+      ) {
+        Icon(
+          imageVector = Icons.Outlined.Timer,
+          contentDescription = stringResource(R.string.cd_schedule_icon),
+          tint = MaterialTheme.colorScheme.primary,
+          modifier = Modifier.size(22.dp),
+        )
+        Text(
+          text = stringResource(R.string.settings_removal_title),
+          style = MaterialTheme.typography.titleMedium,
+          color = MaterialTheme.colorScheme.onSurface,
+        )
+      }
+      if (onShowHelp != null) {
+        ContextualHelpButton(
+          onClick = onShowHelp,
+          contentDescription = stringResource(R.string.guide_contextual_help_cd),
+          testTag = "settings_removal_help_button",
+        )
+      }
     }
 
     val (badgeIcon, badgeLabel, badgeBg, badgeFg) =

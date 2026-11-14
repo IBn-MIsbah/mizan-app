@@ -8,6 +8,7 @@ import com.example.domain.allowance.SharedAllowanceAccountant
 import com.example.domain.insights.DashboardInsights
 import com.example.domain.insights.UsageInsightsCalculator
 import com.example.domain.model.AccountabilityMetadata
+import com.example.domain.model.AppPreferences
 import com.example.domain.model.Commitment
 import com.example.domain.model.DailyUsage
 import com.example.domain.model.UsageCoverageStatus
@@ -84,6 +85,7 @@ data class DashboardContent(
   val status: DashboardStatus,
   val history: List<Commitment>,
   val isPinEnabled: Boolean,
+  val preferences: AppPreferences = AppPreferences(),
   val healthSnapshot: EnforcementHealthSnapshot = EnforcementHealthSnapshot(),
   val usageAccessSnapshot: UsageAccessSnapshot = UsageAccessSnapshot(),
   val batteryOptimizationSnapshot: BatteryOptimizationSnapshot = BatteryOptimizationSnapshot(),
@@ -124,8 +126,9 @@ constructor(
       usageAccessMonitor.usageAccessState,
       batteryOptimizationMonitor.batteryState,
       vpnFilterMonitor.vpnState,
-    ) { health, usageAccess, battery, vpn ->
-      SystemMonitors(health, usageAccess, battery, vpn)
+      userPreferencesRepository.preferences,
+    ) { health, usageAccess, battery, vpn, prefs ->
+      SystemMonitors(health, usageAccess, battery, vpn, prefs)
     }
 
   val uiState: StateFlow<DashboardUiState> =
@@ -180,6 +183,10 @@ constructor(
 
   fun setWebsiteFilteringConsent(consented: Boolean) {
     viewModelScope.launch { userPreferencesRepository.setWebsiteFilteringConsented(consented) }
+  }
+
+  fun dismissFirstUseGuide() {
+    viewModelScope.launch { userPreferencesRepository.setFirstUseGuideCompleted(true) }
   }
 
   fun onVpnPermissionResult(granted: Boolean) {
@@ -281,6 +288,7 @@ constructor(
               status = status,
               history = history,
               isPinEnabled = isPinEnabled,
+              preferences = monitors.preferences,
               healthSnapshot = monitors.health,
               usageAccessSnapshot = monitors.usageAccess,
               batteryOptimizationSnapshot = monitors.battery,
@@ -320,6 +328,7 @@ constructor(
           status = primaryStatus,
           history = history,
           isPinEnabled = isPinEnabled,
+          preferences = monitors.preferences,
           healthSnapshot = monitors.health,
           usageAccessSnapshot = monitors.usageAccess,
           batteryOptimizationSnapshot = monitors.battery,
@@ -365,6 +374,7 @@ constructor(
     val usageAccess: UsageAccessSnapshot,
     val battery: BatteryOptimizationSnapshot,
     val vpn: VpnFilterSnapshot,
+    val preferences: AppPreferences = AppPreferences(),
   )
 
   private data class DashboardInputs(

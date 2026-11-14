@@ -15,7 +15,9 @@ import com.example.domain.lifecycle.RemovalRequestStateMachine
 import com.example.domain.model.AccountabilityMetadata
 import com.example.domain.model.AppPreferences
 import com.example.domain.model.Commitment
+import com.example.domain.model.DatasetAvailabilityStatus
 import com.example.domain.model.DatasetSeedDefaults
+import com.example.domain.model.DatasetStatusEvaluator
 import com.example.domain.model.FilterDatasetMetadata
 import com.example.domain.model.RemovalRequest
 import com.example.domain.model.RemovalRequestId
@@ -37,6 +39,9 @@ import com.example.domain.repository.SecurityEventRepository
 import com.example.domain.repository.UserPreferencesRepository
 import com.example.domain.time.TimeProvider
 import com.example.domain.time.WallClockPoint
+import com.example.platform.filter.DatasetSyncController
+import com.example.platform.filter.DatasetSyncUiSnapshot
+import com.example.platform.filter.DatasetUpdateScheduler
 import com.example.platform.health.BatteryOptimizationMonitor
 import com.example.platform.health.BatteryOptimizationSnapshot
 import com.example.platform.health.EnforcementHealthMonitor
@@ -90,6 +95,11 @@ data class RemovalRequestUiState(
   val errorMessage: String? = null,
 )
 
+data class DatasetManagementItem(
+  val metadata: FilterDatasetMetadata,
+  val availabilityStatus: DatasetAvailabilityStatus,
+)
+
 data class SettingsSummary(
   val preferences: AppPreferences,
   val applicationId: String,
@@ -99,6 +109,8 @@ data class SettingsSummary(
   val batteryOptimizationSnapshot: BatteryOptimizationSnapshot = BatteryOptimizationSnapshot(),
   val vpnFilterSnapshot: VpnFilterSnapshot = VpnFilterSnapshot(),
   val datasets: List<FilterDatasetMetadata> = DatasetSeedDefaults.defaultMetadata(),
+  val datasetItems: List<DatasetManagementItem> = emptyList(),
+  val datasetSyncSnapshot: DatasetSyncUiSnapshot = DatasetSyncUiSnapshot(),
   val pinState: PinManagementUiState = PinManagementUiState(),
   val removalState: RemovalRequestUiState = RemovalRequestUiState(),
   val errorMessage: String? = null,
@@ -120,6 +132,8 @@ constructor(
   private val batteryOptimizationMonitor: BatteryOptimizationMonitor,
   private val vpnFilterMonitor: VpnFilterMonitor,
   private val domainFilterRepository: DomainFilterRepository,
+  private val datasetSyncController: DatasetSyncController,
+  private val datasetUpdateScheduler: DatasetUpdateScheduler,
   private val commitmentRepository: CommitmentRepository,
   private val accountabilityMetadataRepository: AccountabilityMetadataRepository,
   private val accountabilityPinRepository: AccountabilityPinRepository,
@@ -166,19 +180,40 @@ constructor(
       SecurityDataBundle(datasetsResult, metadataResult, removalResult, activeResult)
     }
 
+  private val transientUiFlow =
+    combine(_removalTransient, _errorMessage, datasetSyncController.syncState) {
+      removal,
+      err,
+      datasetSync ->
+      TransientUiBundle(removal, err, datasetSync)
+    }
+
   val uiState: StateFlow<SettingsUiState> =
     combine(
         systemHealthFlow,
         securityDataFlow,
         _pinDraft,
         _pinVaultInfo,
-        combine(_removalTransient, _errorMessage) { removal, err -> removal to err },
-      ) { sys, sec, pinDraft, vaultInfo, (removalTransient, generalError) ->
+        transientUiFlow,
+      ) { sys, sec, pinDraft, vaultInfo, transientUi ->
         val datasets =
           when (val res = sec.datasetsResult) {
             is PersistenceResult.Success ->
               if (res.data.isEmpty()) DatasetSeedDefaults.defaultMetadata() else res.data
             is PersistenceResult.Failure -> DatasetSeedDefaults.defaultMetadata()
+          }
+        val nowEpochMillis = timeProvider.currentWallClock().epochMillis
+        val datasetItems =
+          datasets.map { meta ->
+            DatasetManagementItem(
+              metadata = meta,
+              availabilityStatus =
+                DatasetStatusEvaluator.evaluate(
+                  metadata = meta,
+                  isUpdating = meta.datasetId in transientUi.datasetSync.updatingDatasetIds,
+                  nowEpochMillis = nowEpochMillis,
+                ),
+            )
           }
         val metadata =
           (sec.metadataResult as? PersistenceResult.Success)?.data ?: AccountabilityMetadata()
@@ -202,7 +237,7 @@ constructor(
           buildRemovalUiState(
             latestRequest = latestRequest,
             hasActiveCommitment = activeCommitment != null,
-            transient = removalTransient,
+            transient = transientUi.removal,
           )
 
         SettingsUiState.Ready(
@@ -215,9 +250,11 @@ constructor(
             batteryOptimizationSnapshot = sys.battery,
             vpnFilterSnapshot = sys.vpn,
             datasets = datasets,
+            datasetItems = datasetItems,
+            datasetSyncSnapshot = transientUi.datasetSync,
             pinState = pinUiState,
             removalState = removalUiState,
-            errorMessage = generalError,
+            errorMessage = transientUi.errorMessage,
           )
         )
       }
@@ -307,7 +344,57 @@ constructor(
       val result = userPreferencesRepository.setWifiOnlyFilterUpdates(wifiOnly)
       if (result is PersistenceResult.Failure) {
         _errorMessage.value = result.error.toDisplayMessage()
+      } else {
+        runCatching { datasetUpdateScheduler.syncPeriodicSchedule(wifiOnly) }
       }
+    }
+  }
+
+  fun setReduceGuideAnimations(reduce: Boolean) {
+    _errorMessage.value = null
+    viewModelScope.launch {
+      val result = userPreferencesRepository.setReduceGuideAnimations(reduce)
+      if (result is PersistenceResult.Failure) {
+        _errorMessage.value = result.error.toDisplayMessage()
+      }
+    }
+  }
+
+  fun replayFirstUseWalkthrough() {
+    _errorMessage.value = null
+    viewModelScope.launch {
+      val result = userPreferencesRepository.setFirstUseGuideCompleted(false)
+      if (result is PersistenceResult.Failure) {
+        _errorMessage.value = result.error.toDisplayMessage()
+      }
+    }
+  }
+
+  fun checkDatasetUpdatesNow() {
+    _errorMessage.value = null
+    viewModelScope.launch {
+      datasetSyncController.runUpdateCheck(targetDatasetId = null)
+      val wifiOnly =
+        runCatching { userPreferencesRepository.preferences.first().wifiOnlyFilterUpdates }
+          .getOrDefault(true)
+      runCatching { datasetUpdateScheduler.syncPeriodicSchedule(wifiOnly) }
+      _evalTick.value += 1
+    }
+  }
+
+  fun importSignedDatasetPackage(rawJsonBytes: ByteArray) {
+    _errorMessage.value = null
+    viewModelScope.launch {
+      datasetSyncController.importSignedLocalPackage(rawJsonBytes)
+      _evalTick.value += 1
+    }
+  }
+
+  fun rollbackDataset(datasetId: String) {
+    _errorMessage.value = null
+    viewModelScope.launch {
+      datasetSyncController.rollbackDataset(datasetId)
+      _evalTick.value += 1
     }
   }
 
@@ -697,5 +784,11 @@ constructor(
   private data class PinVaultSnapshot(
     val available: Boolean = false,
     val lockoutRemainingSeconds: Long = 0L,
+  )
+
+  private data class TransientUiBundle(
+    val removal: RemovalTransientInternal,
+    val errorMessage: String?,
+    val datasetSync: DatasetSyncUiSnapshot,
   )
 }

@@ -30,6 +30,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.example.R
+import com.example.feature.guide.ContextualGuideCatalog
 import com.example.platform.vpn.VpnFilterSnapshot
 import com.example.platform.vpn.VpnServiceLifecycleStatus
 
@@ -195,16 +196,16 @@ fun VpnFilterHealthCard(
     }
 
     if (vpnSnapshot.hasActiveWebsiteCommitment) {
-      Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+      Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
           text = stringResource(R.string.vpn_disclosure_title),
           style = MaterialTheme.typography.labelLarge,
           color = MaterialTheme.colorScheme.onSurface,
         )
-        Text(
-          text = stringResource(R.string.vpn_disclosure_body),
-          style = MaterialTheme.typography.bodySmall,
-          color = MaterialTheme.colorScheme.onSurfaceVariant,
+        MizanSlideDeck(
+          slides = ContextualGuideCatalog.vpnDisclosureSlides,
+          testTagPrefix = "${testTagPrefix}_disclosure_deck",
+          compactVisualPadding = true,
         )
       }
 

@@ -76,7 +76,7 @@
     <string name="vpn_desc_another_vpn">Another VPN is currently active on this device. Android permits only one active VPN at a time, so MIZAN DNS filtering is inactive.</string>
     <string name="vpn_desc_error">Local DNS filtering encountered an error and stopped safely. App restriction enforcement and usage measurement remain active.</string>
     <string name="vpn_disclosure_title">Before Enabling Local VPN Filtering</string>
-    <string name="vpn_disclosure_body">• MIZAN uses Android VPN permission strictly for local on-device DNS filtering.\n• Android allows only one active VPN at a time; enabling MIZAN may displace another VPN.\n• Filtering is domain-based only — not HTTPS URL-path or page-content filtering.\n• Encrypted DNS (Private DNS / DoH), hard-coded IPs, proxies, and other bypasses can circumvent DNS filtering.\n• Ordinary browsing traffic is NOT routed through a remote MIZAN server.\n• Shared domains (such as shared CDNs) can cause legitimate services to become inaccessible.</string>
+    <string name="vpn_disclosure_body">• MIZAN uses Android VPN permission strictly for local on-device DNS filtering.\n• Android allows only one active VPN at a time; enabling MIZAN may conflict with or displace another active VPN.\n• Filtering is domain-based only — not HTTPS URL-path or page-content filtering.\n• Encrypted DNS (Android Private DNS / DoT and browser DNS-over-HTTPS / DoH), IPv6 DNS servers or IPv6-only networks (MIZAN tunnels IPv4 DNS only), hard-coded IPs, and proxies can circumvent local DNS filtering.\n• Ordinary browsing traffic is NOT routed through a remote MIZAN server.\n• Shared domains (such as shared CDNs) can cause legitimate services to become inaccessible.</string>
     <string name="vpn_consent_checkbox_label">I understand how MIZAN local DNS filtering works and its limitations.</string>
     <string name="vpn_enable_start_button">Enable &amp; Start Local DNS Filter</string>
     <string name="vpn_stop_button">Stop Local DNS Filter</string>
@@ -199,7 +199,7 @@
     <string name="review_duration_title">Duration &amp; Lifecycle</string>
     <string name="review_duration_body">7 full days (168 hours from activation). Does not auto-renew at completion. Allowance and rules lock once activated.</string>
     <string name="review_limitations_title">Enforcement &amp; Measurement Limitations</string>
-    <string name="review_limitations_body">App blocking and foreground usage measurement depend on Android Accessibility Settings (and optional Usage Access) and OEM background behavior. If website filtering is enabled, local DNS filtering requires user-consented Android VPN authorization, covers DNS domains only (not URL paths, content, Private DNS, proxies, or hard-coded IPs), and respects Android\'s one-active-VPN limit.</string>
+    <string name="review_limitations_body">App blocking and foreground usage measurement depend on Android Accessibility Settings (and optional Usage Access) and OEM background behavior. If website filtering is enabled, local DNS filtering requires user-consented Android VPN authorization, covers IPv4 DNS domains only (not URL paths, page content, Private DNS / DoT, DNS-over-HTTPS, IPv6 DNS networks, proxies, or hard-coded IPs), and respects Android\'s one-active-VPN limit.</string>
     <string name="review_agreement_label">I have reviewed the exact rules and current limitations, and I deliberately agree to activate this 7-day commitment.</string>
     <string name="review_activate_button">Activate 7-Day Commitment</string>
 
@@ -253,8 +253,17 @@
     <string name="settings_removal_execute_button">Complete Local Deactivation</string>
     <string name="settings_removal_open_app_info_button">Open Android App Info</string>
     <string name="settings_filter_pref_title">Filter Datasets &amp; Update Policy</string>
-    <string name="settings_filter_wifi_only_label">Update local filter datasets on Wi-Fi only</string>
-    <string name="settings_filter_wifi_only_note">Remote category dataset updates remain disabled because no signed external feed and pinned public verification key are configured. Custom blocked and allowlisted domains work 100% offline.</string>
+    <string name="settings_filter_wifi_only_label">Update Social Media dataset on Wi-Fi only</string>
+    <string name="settings_filter_wifi_only_note">WorkManager schedules Social Media updates on unmetered Wi-Fi when enabled (or any connected network when disabled). Adult Content updates are allowed on both Wi-Fi and cellular networks. Remote feeds remain disabled until a vetted HTTPS source and pinned ECDSA public key are configured; cached datasets and custom domains always filter offline.</string>
+    <string name="settings_dataset_status_available">Available</string>
+    <string name="settings_dataset_status_updating">Updating…</string>
+    <string name="settings_dataset_status_outdated">Outdated</string>
+    <string name="settings_dataset_status_unavailable">Unavailable</string>
+    <string name="settings_dataset_status_failed">Failed</string>
+    <string name="settings_dataset_check_updates_button">Check for Updates</string>
+    <string name="settings_dataset_import_button">Import Signed Package (.json)</string>
+    <string name="settings_dataset_rollback_format">Roll Back to v%1$d</string>
+    <string name="settings_dataset_limitations_note">DNS filtering limitations: Private DNS (DoT), browser DNS-over-HTTPS (DoH), IPv6 DNS / IPv6-only networks (MIZAN tunnels IPv4 DNS only), proxies, hard-coded IPs, and another active VPN can bypass or conflict with local DNS filtering.</string>
     <string name="settings_privacy_title">Local-Data Privacy Guarantee</string>
     <string name="settings_privacy_body">MIZAN stores all commitments, rules, and preferences exclusively in local Room and DataStore storage (excluded from cloud backup). MIZAN never stores DNS query history or browsing logs, and includes zero accounts, cloud sync, analytics, ads, or remote servers.</string>
     <string name="settings_onboarding_revisit_button">Review Onboarding &amp; Permission Guide</string>
@@ -288,4 +297,50 @@
     <string name="insights_weekly_no_usage">No restricted foreground usage recorded across the last 7 days.</string>
     <string name="insights_baseline_title">Personal Baseline Comparison</string>
     <string name="insights_baseline_insufficient_format">Insufficient local history for baseline comparison (%1$d of %2$d measured days recorded).</string>
+
+    <!-- Interactive User Guide & Swipeable Slides -->
+    <string name="guide_title">Interactive User Guide</string>
+    <string name="guide_subtitle">Step-by-step animated demonstrations and clear explanations for every control in MIZAN.</string>
+    <string name="guide_open_action">User Guide</string>
+    <string name="guide_walkthrough_banner_title">First-Use Guided Walkthrough</string>
+    <string name="guide_walkthrough_banner_body">Learn how 7-day commitments, modes, permissions, local DNS filtering, and emergency controls work in a few minutes.</string>
+    <string name="guide_walkthrough_start_button">Start Guided Walkthrough</string>
+    <string name="guide_walkthrough_dismiss_button">Skip for Now</string>
+    <string name="guide_walkthrough_complete_button">Finish Walkthrough</string>
+    <string name="guide_walkthrough_skip_button">Skip Walkthrough</string>
+    <string name="guide_replay_walkthrough_button">Replay Guided Walkthrough</string>
+    <string name="guide_open_full_button">Open Full Interactive Guide</string>
+    <string name="guide_slide_counter_format">Slide %1$d of %2$d</string>
+    <string name="guide_topic_counter_format">Topic %1$d of %2$d</string>
+    <string name="guide_next_label">Next</string>
+    <string name="guide_next_topic_label">Next Topic</string>
+    <string name="guide_prev_topic_label">Previous</string>
+    <string name="guide_replay_slides_label">Replay Slides</string>
+    <string name="guide_replay_demo_label">Replay Animation</string>
+    <string name="guide_pause_demo_label">Pause Demo</string>
+    <string name="guide_play_demo_label">Play Demo</string>
+    <string name="guide_example_label">Practical Example</string>
+    <string name="guide_action_card_title">Action &amp; Outcome Breakdown</string>
+    <string name="guide_action_ui_label">1. UI Control</string>
+    <string name="guide_action_does_label">2. What This Action Does</string>
+    <string name="guide_action_consequence_label">3. Consequences &amp; Limits</string>
+    <string name="guide_action_expect_label">4. What to Expect Afterward</string>
+    <string name="guide_contextual_help_cd">Open contextual explanation</string>
+    <string name="guide_reduced_motion_note">Reduced motion active — showing clear static preview.</string>
+
+    <!-- Settings Guide & Confirmations -->
+    <string name="settings_help_guide_title">Help &amp; Interactive User Guide</string>
+    <string name="settings_help_guide_body">Explore animated walkthroughs for setup, permissions, local VPN filtering, datasets, and emergency tools anytime offline.</string>
+    <string name="settings_open_guide_button">Open Interactive User Guide</string>
+    <string name="settings_reduce_motion_label">Reduce guide animations</string>
+    <string name="settings_reduce_motion_note">Shows static step previews instead of motion in tutorials and slide transitions (also honors Android system animation scale).</string>
+    <string name="settings_pin_remove_confirm_title">Remove Accountability PIN?</string>
+    <string name="settings_pin_remove_confirm_body">Removing your PIN deletes the local Keystore-sealed credential. Future emergency terminations will only require warning confirmation.</string>
+    <string name="settings_pin_remove_confirm_action">Remove PIN</string>
+    <string name="cancel_label">Cancel</string>
+
+    <!-- Dashboard & Screen Clarifications -->
+    <string name="dashboard_progress_days_format">Day %1$d of 7 · %2$s remaining</string>
+    <string name="dashboard_progress_ended_label">7-day period complete (100%)</string>
+    <string name="review_limitations_slides_title">Before You Agree: Rules &amp; Android Limits</string>
 </resources>

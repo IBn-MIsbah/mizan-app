@@ -62,6 +62,53 @@ data class FilterDatasetMetadata(
     get() = trustStatus == DatasetTrustStatus.INSTALLED_VERIFIED && recordCount > 0
 }
 
+enum class DatasetAvailabilityStatus {
+  AVAILABLE,
+  UPDATING,
+  OUTDATED,
+  UNAVAILABLE,
+  FAILED,
+}
+
+object DatasetStatusEvaluator {
+  const val DEFAULT_OUTDATED_AFTER_MILLIS: Long = 30L * 24L * 60L * 60L * 1000L
+
+  fun evaluate(
+    metadata: FilterDatasetMetadata,
+    isUpdating: Boolean,
+    nowEpochMillis: Long,
+    outdatedAfterMillis: Long = DEFAULT_OUTDATED_AFTER_MILLIS,
+  ): DatasetAvailabilityStatus {
+    if (isUpdating) return DatasetAvailabilityStatus.UPDATING
+
+    if (
+      metadata.trustStatus == DatasetTrustStatus.INVALID_SIGNATURE ||
+        metadata.trustStatus == DatasetTrustStatus.CORRUPT_OR_REJECTED
+    ) {
+      return DatasetAvailabilityStatus.FAILED
+    }
+
+    if (metadata.isUsable && !metadata.lastError.isNullOrBlank()) {
+      return DatasetAvailabilityStatus.FAILED
+    }
+
+    if (!metadata.isUsable) {
+      return DatasetAvailabilityStatus.UNAVAILABLE
+    }
+
+    val updatedAt = metadata.updatedAtEpochMillis
+    if (
+      updatedAt != null &&
+        nowEpochMillis >= updatedAt &&
+        (nowEpochMillis - updatedAt) > outdatedAfterMillis
+    ) {
+      return DatasetAvailabilityStatus.OUTDATED
+    }
+
+    return DatasetAvailabilityStatus.AVAILABLE
+  }
+}
+
 object DatasetSeedDefaults {
   const val ADULT_DATASET_ID = "builtin_placeholder_adult_content"
   const val SOCIAL_DATASET_ID = "builtin_placeholder_social_media"

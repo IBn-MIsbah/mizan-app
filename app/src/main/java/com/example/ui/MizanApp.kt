@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.example.core.designsystem.component.ProvideMizanMotionPreferences
 import com.example.core.navigation.MizanNavHost
 import com.example.core.navigation.MizanRoute
 import com.example.core.navigation.TopLevelDestination
@@ -56,24 +57,27 @@ fun MizanApp(
     }
 
     is MainUiState.Ready -> {
-      val navController = rememberNavController()
-      val backStackEntry by navController.currentBackStackEntryAsState()
-      val currentDestination = backStackEntry?.destination
-      val startDestination = remember {
-        if (rootState.preferences.onboardingCompleted) {
-          MizanRoute.Home
-        } else {
-          MizanRoute.Onboarding(revisitFromSettings = false)
-        }
-      }
-
-      val isTopLevelRoute =
-        currentDestination != null &&
-          TopLevelDestination.entries.any { destination ->
-            currentDestination.hasRoute(destination.route::class)
+      ProvideMizanMotionPreferences(
+        userReduceMotion = rootState.preferences.reduceGuideAnimations
+      ) {
+        val navController = rememberNavController()
+        val backStackEntry by navController.currentBackStackEntryAsState()
+        val currentDestination = backStackEntry?.destination
+        val startDestination = remember {
+          if (rootState.preferences.onboardingCompleted) {
+            MizanRoute.Home
+          } else {
+            MizanRoute.Onboarding(revisitFromSettings = false)
           }
+        }
 
-      BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+        val isTopLevelRoute =
+          currentDestination != null &&
+            TopLevelDestination.entries.any { destination ->
+              currentDestination.hasRoute(destination.route::class)
+            }
+
+        BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         val useNavigationRail = maxWidth >= 600.dp
 
         Scaffold(
@@ -144,7 +148,9 @@ fun MizanApp(
             )
           }
         }
+        }
       }
     }
   }
 }
+

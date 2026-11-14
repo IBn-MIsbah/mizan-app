@@ -94,6 +94,7 @@ data class DraftEditorState(
   val blockedDomainCategories: Set<DomainCategory> = emptySet(),
   val customDomainInput: String = "",
   val datasetMetadata: List<FilterDatasetMetadata> = DatasetSeedDefaults.defaultMetadata(),
+  val datasetEvalEpochMillis: Long = 0L,
   val isPinConfigured: Boolean = false,
   val requirePinForEmergencyTermination: Boolean = false,
   val validationMessages: List<String> = emptyList(),
@@ -209,6 +210,7 @@ constructor(
                     blockedDomains = latestDraft.rules.blockedDomains,
                     blockedDomainCategories = latestDraft.rules.blockedDomainCategories,
                     datasetMetadata = datasets,
+                    datasetEvalEpochMillis = timeProvider.currentWallClock().epochMillis,
                     isPinConfigured = pinConfigured,
                     requirePinForEmergencyTermination =
                       latestDraft.rules.requirePinForEmergencyTermination,
@@ -224,6 +226,7 @@ constructor(
                     installedAppsLoaded = editor.installedAppsLoaded,
                     installedAppsError = editor.installedAppsError,
                     datasetMetadata = datasets,
+                    datasetEvalEpochMillis = timeProvider.currentWallClock().epochMillis,
                     isPinConfigured = pinConfigured,
                   )
                 editorState.value = reset
@@ -233,6 +236,7 @@ constructor(
                   editor.copy(
                     existingDraft = latestDraft,
                     datasetMetadata = datasets,
+                    datasetEvalEpochMillis = timeProvider.currentWallClock().epochMillis,
                     isPinConfigured = pinConfigured,
                   )
                 )

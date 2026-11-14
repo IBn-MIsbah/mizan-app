@@ -22,6 +22,9 @@ import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -30,9 +33,13 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.R
+import com.example.core.designsystem.component.ContextualGuideSheet
+import com.example.core.designsystem.component.ContextualHelpButton
 import com.example.core.designsystem.component.MizanStatusBadge
 import com.example.core.designsystem.component.MizanSurfaceCard
 import com.example.domain.model.RestrictionMode
+import com.example.feature.guide.ContextualGuideCatalog
+import com.example.feature.guide.ContextualGuideContext
 import com.example.feature.home.RulesSummaryBlock
 import kotlinx.coroutines.flow.collectLatest
 
@@ -41,6 +48,7 @@ fun CommitmentsRoute(
   onNavigateToReview: (String) -> Unit,
   onNavigateToDashboard: () -> Unit,
   modifier: Modifier = Modifier,
+  onOpenUserGuide: (sectionId: String?, walkthroughMode: Boolean) -> Unit = { _, _ -> },
   viewModel: CommitmentsViewModel = hiltViewModel(),
 ) {
   val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -57,6 +65,7 @@ fun CommitmentsRoute(
     uiState = uiState,
     viewModel = viewModel,
     onNavigateToDashboard = onNavigateToDashboard,
+    onOpenUserGuide = onOpenUserGuide,
     modifier = modifier,
   )
 }
@@ -67,7 +76,22 @@ fun CommitmentsScreen(
   viewModel: CommitmentsViewModel,
   onNavigateToDashboard: () -> Unit,
   modifier: Modifier = Modifier,
+  onOpenUserGuide: (sectionId: String?, walkthroughMode: Boolean) -> Unit = { _, _ -> },
 ) {
+  var activeHelpContext by remember { mutableStateOf<ContextualGuideContext?>(null) }
+
+  activeHelpContext?.let { helpContext ->
+    ContextualGuideSheet(
+      title = ContextualGuideCatalog.titleFor(helpContext),
+      slides = ContextualGuideCatalog.slidesFor(helpContext),
+      onDismiss = { activeHelpContext = null },
+      testTagPrefix = "setup_contextual_guide_sheet",
+      onOpenFullGuide = {
+        onOpenUserGuide(ContextualGuideCatalog.topicIdFor(helpContext), false)
+      },
+    )
+  }
+
   Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
     LazyColumn(
       modifier = Modifier.fillMaxWidth().widthIn(max = 640.dp).testTag("commitments_screen_list"),
@@ -75,16 +99,31 @@ fun CommitmentsScreen(
       verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
       item {
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-          Text(
-            text = stringResource(R.string.setup_headline),
-            style = MaterialTheme.typography.headlineSmall,
-            color = MaterialTheme.colorScheme.onBackground,
-          )
-          Text(
-            text = stringResource(R.string.setup_subtitle),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+          Column(
+            modifier = Modifier.weight(1f).padding(end = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+          ) {
+            Text(
+              text = stringResource(R.string.setup_headline),
+              style = MaterialTheme.typography.headlineSmall,
+              color = MaterialTheme.colorScheme.onBackground,
+            )
+            Text(
+              text = stringResource(R.string.setup_subtitle),
+              style = MaterialTheme.typography.bodyMedium,
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+          }
+          ContextualHelpButton(
+            onClick = { activeHelpContext = ContextualGuideContext.SETUP_MODES },
+            contentDescription = stringResource(R.string.guide_contextual_help_cd),
+            label = stringResource(R.string.guide_open_action),
+            testTag = "setup_contextual_help_button",
           )
         }
       }
@@ -151,6 +190,7 @@ fun CommitmentsScreen(
             ModeSelectionCard(
               selectedMode = editor.mode,
               onSelectMode = viewModel::selectMode,
+              onShowHelp = { activeHelpContext = ContextualGuideContext.SETUP_MODES },
             )
           }
 
@@ -163,6 +203,7 @@ fun CommitmentsScreen(
               onCustomPackageChange = viewModel::onCustomRestrictedPackageChange,
               onAddCustom = viewModel::addCustomRestrictedApp,
               onRemoveApp = viewModel::removeRestrictedApp,
+              onShowHelp = { activeHelpContext = ContextualGuideContext.SETUP_APPS },
             )
           }
 
@@ -176,6 +217,7 @@ fun CommitmentsScreen(
               onCategoryChange = viewModel::onCustomAllowedCategoryChange,
               onAddCustom = viewModel::addCustomAllowedApp,
               onRemoveApp = viewModel::removeAllowedApp,
+              onShowHelp = { activeHelpContext = ContextualGuideContext.SETUP_APPS },
             )
           }
 
@@ -188,6 +230,9 @@ fun CommitmentsScreen(
                 onAdjustEnd = viewModel::adjustWindowEnd,
                 onAddWindow = viewModel::addScheduleWindow,
                 onRemoveWindow = viewModel::removeScheduleWindow,
+                onShowHelp = {
+                  activeHelpContext = ContextualGuideContext.SETUP_SCHEDULE_ALLOWANCE
+                },
               )
             }
           }
@@ -198,6 +243,9 @@ fun CommitmentsScreen(
                 allowanceMinutes = editor.dailyAllowanceMinutes,
                 onSetAllowance = viewModel::setDailyAllowanceMinutes,
                 onAdjustAllowance = viewModel::adjustDailyAllowance,
+                onShowHelp = {
+                  activeHelpContext = ContextualGuideContext.SETUP_SCHEDULE_ALLOWANCE
+                },
               )
             }
           }
@@ -215,6 +263,7 @@ fun CommitmentsScreen(
               },
               onRemoveDomain = viewModel::removeDomainRule,
               onToggleCategory = viewModel::toggleDomainCategory,
+              onShowHelp = { activeHelpContext = ContextualGuideContext.SETUP_WEBSITE },
             )
           }
 
@@ -222,6 +271,7 @@ fun CommitmentsScreen(
             AccountabilityPinSetupCard(
               editor = editor,
               onToggleRequirePin = viewModel::setRequirePinForEmergencyTermination,
+              onShowHelp = { activeHelpContext = ContextualGuideContext.SETUP_PIN },
             )
           }
 
@@ -231,6 +281,11 @@ fun CommitmentsScreen(
                 modifier = Modifier.testTag("setup_validation_error_card"),
                 containerColor = MaterialTheme.colorScheme.errorContainer,
               ) {
+                Text(
+                  text = "Review before continuing:",
+                  style = MaterialTheme.typography.labelLarge,
+                  color = MaterialTheme.colorScheme.onErrorContainer,
+                )
                 editor.validationMessages.forEach { message ->
                   Text(
                     text = "• $message",

@@ -12,6 +12,7 @@ import androidx.navigation.compose.composable
 import com.example.feature.commitments.CommitmentsRoute
 import com.example.feature.completion.CommitmentCompletionRoute
 import com.example.feature.emergency.EmergencyTerminationRoute
+import com.example.feature.guide.InteractiveGuideRoute
 import com.example.feature.home.HomeRoute
 import com.example.feature.onboarding.OnboardingRoute
 import com.example.feature.review.CommitmentReviewRoute
@@ -23,6 +24,13 @@ fun MizanNavHost(
   startDestination: MizanRoute,
   modifier: Modifier = Modifier,
 ) {
+  val openGuide: (sectionId: String?, walkthroughMode: Boolean) -> Unit =
+    { sectionId, walkthroughMode ->
+      navController.navigate(
+        MizanRoute.InteractiveGuide(sectionId = sectionId, walkthroughMode = walkthroughMode)
+      )
+    }
+
   NavHost(
     navController = navController,
     startDestination = startDestination,
@@ -39,6 +47,7 @@ fun MizanNavHost(
           }
         },
         onNavigateBack = { navController.popBackStack() },
+        onOpenUserGuide = openGuide,
       )
     }
 
@@ -54,6 +63,7 @@ fun MizanNavHost(
         onNavigateToEmergencyTermination = { commitmentId ->
           navController.navigate(MizanRoute.EmergencyTermination(commitmentId))
         },
+        onOpenUserGuide = openGuide,
       )
     }
 
@@ -63,6 +73,7 @@ fun MizanNavHost(
           navController.navigate(MizanRoute.CommitmentReview(commitmentId))
         },
         onNavigateToDashboard = { navController.navigateToTopLevel(MizanRoute.Home) },
+        onOpenUserGuide = openGuide,
       )
     }
 
@@ -75,6 +86,7 @@ fun MizanNavHost(
             launchSingleTop = true
           }
         },
+        onOpenUserGuide = openGuide,
       )
     }
 
@@ -93,6 +105,7 @@ fun MizanNavHost(
             launchSingleTop = true
           }
         },
+        onOpenUserGuide = openGuide,
       )
     }
 
@@ -105,6 +118,7 @@ fun MizanNavHost(
             launchSingleTop = true
           }
         },
+        onOpenUserGuide = openGuide,
       )
     }
 
@@ -112,7 +126,14 @@ fun MizanNavHost(
       SettingsRoute(
         onRevisitOnboarding = {
           navController.navigate(MizanRoute.Onboarding(revisitFromSettings = true))
-        }
+        },
+        onOpenUserGuide = openGuide,
+      )
+    }
+
+    composable<MizanRoute.InteractiveGuide> {
+      InteractiveGuideRoute(
+        onNavigateBack = { navController.popBackStack() },
       )
     }
   }

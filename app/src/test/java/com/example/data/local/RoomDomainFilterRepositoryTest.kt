@@ -3,8 +3,15 @@ package com.example.data.local
 import android.content.Context
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import com.example.data.filter.DatasetFeedPolicy
+import com.example.data.filter.EcdsaDomainDatasetSignatureVerifier
+import com.example.data.filter.FeedFetchResult
+import com.example.data.filter.FeedHttpFetcher
+import com.example.data.filter.SignedRemoteDatasetUpdater
+import com.example.data.filter.TrustedDatasetKeyConfig
+import com.example.data.filter.UpdateNetworkEligibility
+import com.example.data.filter.UpdateNetworkPolicyChecker
 import com.example.data.local.db.MizanDatabase
-import com.example.data.repository.DisabledRemoteDatasetUpdater
 import com.example.data.repository.RoomCommitmentRepository
 import com.example.data.repository.RoomDomainFilterRepository
 import com.example.domain.filter.DomainRuleMatcher
@@ -21,11 +28,11 @@ import com.example.domain.model.DomainRuleType
 import com.example.domain.model.RestrictionMode
 import com.example.domain.repository.DatasetImportResult
 import com.example.domain.repository.DomainDatasetSignatureVerifier
-import com.example.domain.repository.NoTrustedKeySignatureVerifier
 import com.example.domain.repository.PersistenceResult
 import com.example.domain.repository.RemoteDatasetUpdateResult
 import com.example.testing.FakeDispatcherProvider
 import com.example.testing.FakeTimeProvider
+import com.example.testing.FakeUserPreferencesRepository
 import java.security.MessageDigest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -77,10 +84,11 @@ class RoomDomainFilterRepositoryTest {
 
   @Test
   fun `default datasets stay missing_or_empty and remote updater reports disabled cleanly`() = runTest {
+    val unconfiguredVerifier = EcdsaDomainDatasetSignatureVerifier(TrustedDatasetKeyConfig())
     val repo =
       RoomDomainFilterRepository(
         domainFilterDao = db.domainFilterDao(),
-        signatureVerifier = NoTrustedKeySignatureVerifier(),
+        signatureVerifier = unconfiguredVerifier,
         timeProvider = timeProvider,
         dispatcherProvider = dispatchers,
       )
@@ -91,7 +99,15 @@ class RoomDomainFilterRepositoryTest {
     assertTrue(datasets.all { it.trustStatus == DatasetTrustStatus.MISSING_OR_EMPTY })
     assertTrue(datasets.none { it.isUsable })
 
-    val updater = DisabledRemoteDatasetUpdater()
+    val updater =
+      SignedRemoteDatasetUpdater(
+        feedPolicy = DatasetFeedPolicy(remoteUpdatesEnabled = false),
+        signatureVerifier = unconfiguredVerifier,
+        domainFilterRepository = repo,
+        userPreferencesRepository = FakeUserPreferencesRepository(),
+        feedHttpFetcher = FeedHttpFetcher { _, _ -> FeedFetchResult.NetworkError("offline") },
+        networkPolicyChecker = UpdateNetworkPolicyChecker { UpdateNetworkEligibility.Eligible },
+      )
     val updateRes = updater.checkAndUpdate(DatasetSeedDefaults.SOCIAL_DATASET_ID)
     assertTrue(updateRes is RemoteDatasetUpdateResult.Disabled)
   }
@@ -106,7 +122,7 @@ class RoomDomainFilterRepositoryTest {
       val noKeyRepo =
         RoomDomainFilterRepository(
           domainFilterDao = db.domainFilterDao(),
-          signatureVerifier = NoTrustedKeySignatureVerifier(),
+          signatureVerifier = EcdsaDomainDatasetSignatureVerifier(TrustedDatasetKeyConfig()),
           timeProvider = timeProvider,
           dispatcherProvider = dispatchers,
         )

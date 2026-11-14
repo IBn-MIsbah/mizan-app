@@ -3,6 +3,8 @@ package com.example.feature.home
 import android.app.Activity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -48,9 +50,16 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.R
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.draw.clip
 import com.example.core.designsystem.component.AccessibilityHealthCard
 import com.example.core.designsystem.component.BatteryOptimizationCard
+import com.example.core.designsystem.component.ContextualGuideSheet
+import com.example.core.designsystem.component.ContextualHelpButton
 import com.example.core.designsystem.component.DashboardInsightsCard
+import com.example.core.designsystem.component.LocalMizanReducedMotion
 import com.example.core.designsystem.component.MizanBrandHeader
 import com.example.core.designsystem.component.MizanEmptyStateCard
 import com.example.core.designsystem.component.MizanScopeNoticeCard
@@ -58,7 +67,6 @@ import com.example.core.designsystem.component.MizanStatusBadge
 import com.example.core.designsystem.component.MizanSurfaceCard
 import com.example.core.designsystem.component.UsageAccessCard
 import com.example.core.designsystem.component.VpnFilterHealthCard
-import com.example.platform.health.BatteryOptimizationStatus
 import com.example.core.time.WallClockFormatting
 import com.example.domain.model.Commitment
 import com.example.domain.model.CommitmentRules
@@ -66,6 +74,9 @@ import com.example.domain.model.CompletionNextStep
 import com.example.domain.model.DomainRuleType
 import com.example.domain.model.RestrictionMode
 import com.example.domain.model.UsageCoverageStatus
+import com.example.feature.guide.ContextualGuideCatalog
+import com.example.feature.guide.ContextualGuideContext
+import com.example.platform.health.BatteryOptimizationStatus
 import kotlin.time.Duration
 
 @Composable
@@ -75,6 +86,7 @@ fun HomeRoute(
   onNavigateToCompletion: (String) -> Unit,
   onNavigateToEmergencyTermination: (String) -> Unit,
   modifier: Modifier = Modifier,
+  onOpenUserGuide: (sectionId: String?, walkthroughMode: Boolean) -> Unit = { _, _ -> },
   viewModel: HomeViewModel = hiltViewModel(),
 ) {
   val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -148,6 +160,8 @@ fun HomeRoute(
     onNavigateToReview = onNavigateToReview,
     onNavigateToCompletion = onNavigateToCompletion,
     onNavigateToEmergencyTermination = onNavigateToEmergencyTermination,
+    onDismissFirstUseGuide = viewModel::dismissFirstUseGuide,
+    onOpenUserGuide = onOpenUserGuide,
     modifier = modifier,
   )
 }
@@ -171,7 +185,23 @@ fun HomeScreen(
   onEnableAndStartVpn: () -> Unit = {},
   onStopVpn: () -> Unit = {},
   vpnActionFeedback: String? = null,
+  onDismissFirstUseGuide: () -> Unit = {},
+  onOpenUserGuide: (sectionId: String?, walkthroughMode: Boolean) -> Unit = { _, _ -> },
 ) {
+  var showDashboardHelpSheet by remember { mutableStateOf(false) }
+
+  if (showDashboardHelpSheet) {
+    ContextualGuideSheet(
+      title = ContextualGuideCatalog.titleFor(ContextualGuideContext.DASHBOARD),
+      slides = ContextualGuideCatalog.slidesFor(ContextualGuideContext.DASHBOARD),
+      onDismiss = { showDashboardHelpSheet = false },
+      testTagPrefix = "home_contextual_guide_sheet",
+      onOpenFullGuide = {
+        onOpenUserGuide(ContextualGuideCatalog.topicIdFor(ContextualGuideContext.DASHBOARD), false)
+      },
+    )
+  }
+
   Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
     LazyColumn(
       modifier = Modifier.fillMaxWidth().widthIn(max = 640.dp).testTag("home_screen_list"),
@@ -181,16 +211,31 @@ fun HomeScreen(
       item { MizanBrandHeader() }
 
       item {
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-          Text(
-            text = stringResource(R.string.dashboard_headline),
-            style = MaterialTheme.typography.headlineSmall,
-            color = MaterialTheme.colorScheme.onBackground,
-          )
-          Text(
-            text = stringResource(R.string.dashboard_subtitle),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+          Column(
+            modifier = Modifier.weight(1f).padding(end = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+          ) {
+            Text(
+              text = stringResource(R.string.dashboard_headline),
+              style = MaterialTheme.typography.headlineSmall,
+              color = MaterialTheme.colorScheme.onBackground,
+            )
+            Text(
+              text = stringResource(R.string.dashboard_subtitle),
+              style = MaterialTheme.typography.bodyMedium,
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+          }
+          ContextualHelpButton(
+            onClick = { showDashboardHelpSheet = true },
+            contentDescription = stringResource(R.string.guide_contextual_help_cd),
+            label = stringResource(R.string.guide_open_action),
+            testTag = "home_contextual_help_button",
           )
         }
       }
@@ -232,6 +277,7 @@ fun HomeScreen(
 
         is DashboardUiState.Success -> {
           val content = uiState.content
+
           item {
             when (val status = content.status) {
               DashboardStatus.NoCommitment -> {
@@ -291,6 +337,50 @@ fun HomeScreen(
                   terminated = status.commitment,
                   onConfigureNew = onNavigateToSetup,
                 )
+              }
+            }
+          }
+
+          if (!content.preferences.firstUseGuideCompleted) {
+            item {
+              MizanSurfaceCard(
+                modifier = Modifier.testTag("dashboard_walkthrough_banner_card"),
+                containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.55f),
+              ) {
+                Text(
+                  text = stringResource(R.string.guide_walkthrough_banner_title),
+                  style = MaterialTheme.typography.titleSmall,
+                  color = MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                  text = stringResource(R.string.guide_walkthrough_banner_body),
+                  style = MaterialTheme.typography.bodySmall,
+                  color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Row(
+                  modifier = Modifier.fillMaxWidth(),
+                  horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                  Button(
+                    onClick = { onOpenUserGuide(null, true) },
+                    modifier =
+                      Modifier.weight(1f)
+                        .minimumInteractiveComponentSize()
+                        .heightIn(min = 48.dp)
+                        .testTag("dashboard_start_walkthrough_button"),
+                  ) {
+                    Text(text = stringResource(R.string.guide_walkthrough_start_button))
+                  }
+                  TextButton(
+                    onClick = onDismissFirstUseGuide,
+                    modifier =
+                      Modifier.minimumInteractiveComponentSize()
+                        .heightIn(min = 48.dp)
+                        .testTag("dashboard_dismiss_walkthrough_button"),
+                  ) {
+                    Text(text = stringResource(R.string.guide_walkthrough_dismiss_button))
+                  }
+                }
               }
             }
           }
@@ -450,6 +540,47 @@ private fun ActiveCommitmentCard(
       )
     }
 
+    val reducedMotion = LocalMizanReducedMotion.current
+    val totalMs = (active.endsAt.epochMillis - active.activatedAt.epochMillis).coerceAtLeast(1L)
+    val nowMs = System.currentTimeMillis()
+    val elapsedFractionTarget =
+      if (activeState.hasReachedEnd) 1f
+      else ((nowMs - active.activatedAt.epochMillis).toFloat() / totalMs.toFloat()).coerceIn(0.02f, 1f)
+    val animatedElapsed by
+      animateFloatAsState(
+        targetValue = elapsedFractionTarget,
+        animationSpec = tween(durationMillis = if (reducedMotion) 0 else 420),
+        label = "commitment_7day_progress",
+      )
+    val elapsedDays =
+      (((nowMs - active.activatedAt.epochMillis).coerceAtLeast(0L)) / (24L * 60L * 60L * 1000L)).toInt() + 1
+    val boundedDay = elapsedDays.coerceIn(1, 7)
+
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+      Text(
+        text =
+          if (activeState.hasReachedEnd) {
+            stringResource(R.string.dashboard_progress_ended_label)
+          } else {
+            stringResource(
+              R.string.dashboard_progress_days_format,
+              boundedDay,
+              "${(7 - boundedDay).coerceAtLeast(0)}d",
+            )
+          },
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.testTag("dashboard_active_progress_label"),
+      )
+      LinearProgressIndicator(
+        progress = { animatedElapsed },
+        modifier =
+          Modifier.fillMaxWidth()
+            .clip(RoundedCornerShape(4.dp))
+            .testTag("dashboard_active_progress_bar"),
+      )
+    }
+
     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     RulesSummaryBlock(rules = active.rules)
 
@@ -531,6 +662,24 @@ private fun HybridAllowanceSection(activeState: DashboardStatus.Active) {
     style = MaterialTheme.typography.titleSmall,
     color = if (isExhausted) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
     modifier = Modifier.testTag("dashboard_allowance_summary"),
+  )
+
+  val allowanceTotalMs = active.rules.dailyAllowance.inWholeMilliseconds.coerceAtLeast(1L)
+  val allowanceRemainingFraction =
+    (activeState.remainingAllowance.inWholeMilliseconds.toFloat() / allowanceTotalMs.toFloat())
+      .coerceIn(0f, 1f)
+  val animatedAllowance by
+    animateFloatAsState(
+      targetValue = allowanceRemainingFraction,
+      animationSpec = tween(durationMillis = if (LocalMizanReducedMotion.current) 0 else 360),
+      label = "hybrid_allowance_bar",
+    )
+  LinearProgressIndicator(
+    progress = { animatedAllowance },
+    modifier =
+      Modifier.fillMaxWidth()
+        .clip(RoundedCornerShape(4.dp))
+        .testTag("dashboard_allowance_progress_bar"),
   )
 
   Text(

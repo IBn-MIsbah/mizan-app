@@ -66,6 +66,11 @@ import com.example.platform.usage.ForegroundUsageTracker
 import com.example.platform.usage.OsUsageEvent
 import com.example.platform.usage.UsageStatsHistorySource
 import com.example.platform.usage.UsageStatsReconciler
+import com.example.data.filter.SignedPackageImportOutcome
+import com.example.domain.repository.RemoteDatasetUpdateResult
+import com.example.platform.filter.DatasetSyncController
+import com.example.platform.filter.DatasetSyncUiSnapshot
+import com.example.platform.filter.DatasetUpdateScheduler
 import com.example.platform.vpn.VpnFilterMonitor
 import com.example.platform.vpn.VpnFilterSnapshot
 import com.example.platform.vpn.VpnServiceLifecycleStatus
@@ -394,6 +399,18 @@ class FakeUserPreferencesRepository(initial: AppPreferences = AppPreferences()) 
     _preferences.value = _preferences.value.copy(vpnStoppedByUser = stoppedByUser)
     return PersistenceResult.Success(Unit)
   }
+
+  override suspend fun setFirstUseGuideCompleted(completed: Boolean): PersistenceResult<Unit> {
+    writeFailure?.let { return PersistenceResult.Failure(it) }
+    _preferences.value = _preferences.value.copy(firstUseGuideCompleted = completed)
+    return PersistenceResult.Success(Unit)
+  }
+
+  override suspend fun setReduceGuideAnimations(reduce: Boolean): PersistenceResult<Unit> {
+    writeFailure?.let { return PersistenceResult.Failure(it) }
+    _preferences.value = _preferences.value.copy(reduceGuideAnimations = reduce)
+    return PersistenceResult.Success(Unit)
+  }
 }
 
 class FakeDomainFilterRepository(
@@ -401,9 +418,18 @@ class FakeDomainFilterRepository(
 ) : DomainFilterRepository {
   private val datasets = MutableStateFlow(initialDatasets)
   private val categoryDomains = mutableMapOf<DomainCategory, Set<String>>()
+  private val rollbackDomains = mutableMapOf<String, Pair<FilterDatasetMetadata, Set<String>>>()
 
   fun setCategoryDomains(category: DomainCategory, domains: Set<String>) {
     categoryDomains[category] = domains
+  }
+
+  fun setDatasets(list: List<FilterDatasetMetadata>) {
+    datasets.value = list
+  }
+
+  fun setRollbackSnapshot(datasetId: String, previousMeta: FilterDatasetMetadata, domains: Set<String>) {
+    rollbackDomains[datasetId] = previousMeta to domains
   }
 
   override fun observeDatasets(): Flow<PersistenceResult<List<FilterDatasetMetadata>>> =
@@ -415,6 +441,11 @@ class FakeDomainFilterRepository(
     }
     return PersistenceResult.Success(Unit)
   }
+
+  override suspend fun getDatasetMetadata(
+    datasetId: String,
+  ): PersistenceResult<FilterDatasetMetadata?> =
+    PersistenceResult.Success(datasets.value.firstOrNull { it.datasetId == datasetId })
 
   override suspend fun getActiveDomainsForCategories(
     categories: Set<DomainCategory>,
@@ -443,6 +474,10 @@ class FakeDomainFilterRepository(
         .map { it.trim() }
         .filter { it.isNotEmpty() && !it.startsWith("#") }
         .toSet()
+    val existing = datasets.value.firstOrNull { it.datasetId == datasetId }
+    if (existing != null && existing.isUsable) {
+      rollbackDomains[datasetId] = existing to categoryDomains[category].orEmpty()
+    }
     val meta =
       FilterDatasetMetadata(
         datasetId = datasetId,
@@ -456,16 +491,146 @@ class FakeDomainFilterRepository(
         recordCount = lines.size,
         trustStatus = DatasetTrustStatus.INSTALLED_VERIFIED,
         limitationsNote = limitationsNote,
+        previousVersionCode = existing?.takeIf { it.isUsable }?.versionCode,
+        previousContentSha256 = existing?.takeIf { it.isUsable }?.contentSha256,
       )
     categoryDomains[category] = lines
     datasets.value = datasets.value.filterNot { it.datasetId == datasetId } + meta
     return PersistenceResult.Success(DatasetImportResult.Success(meta))
   }
 
+  override suspend fun recordDatasetUpdateFailure(
+    datasetId: String,
+    reason: String,
+    trustStatusOnEmpty: DatasetTrustStatus,
+  ): PersistenceResult<Unit> {
+    datasets.value =
+      datasets.value.map { item ->
+        if (item.datasetId != datasetId) item
+        else if (item.isUsable) item.copy(lastError = reason)
+        else item.copy(trustStatus = trustStatusOnEmpty, lastError = reason)
+      }
+    return PersistenceResult.Success(Unit)
+  }
+
+  override suspend fun clearDatasetError(datasetId: String): PersistenceResult<Unit> {
+    datasets.value =
+      datasets.value.map { item ->
+        if (item.datasetId == datasetId && item.isUsable) item.copy(lastError = null) else item
+      }
+    return PersistenceResult.Success(Unit)
+  }
+
   override suspend fun rollbackDataset(
     datasetId: String,
-  ): PersistenceResult<FilterDatasetMetadata> =
-    PersistenceResult.Failure(PersistenceError.NotFound("No rollback snapshot in fake"))
+  ): PersistenceResult<FilterDatasetMetadata> {
+    val prev = rollbackDomains.remove(datasetId)
+      ?: return PersistenceResult.Failure(PersistenceError.NotFound("No rollback snapshot in fake"))
+    val restored =
+      prev.first.copy(
+        lastError = null,
+        previousVersionCode = null,
+        previousContentSha256 = null,
+      )
+    categoryDomains[restored.category] = prev.second
+    datasets.value = datasets.value.filterNot { it.datasetId == datasetId } + restored
+    return PersistenceResult.Success(restored)
+  }
+}
+
+class FakeDatasetUpdateScheduler : DatasetUpdateScheduler {
+  val syncCalls = mutableListOf<Boolean>()
+  val oneTimeCalls = mutableListOf<Pair<Boolean, String?>>()
+
+  override fun syncPeriodicSchedule(wifiOnly: Boolean) {
+    syncCalls.add(wifiOnly)
+  }
+
+  override fun enqueueOneTimeUpdate(wifiOnly: Boolean, datasetId: String?) {
+    oneTimeCalls.add(wifiOnly to datasetId)
+  }
+}
+
+class FakeDatasetSyncController(
+  private val domainFilterRepository: DomainFilterRepository = FakeDomainFilterRepository(),
+  initialSnapshot: DatasetSyncUiSnapshot = DatasetSyncUiSnapshot(),
+) : DatasetSyncController {
+  private val _syncState = MutableStateFlow(initialSnapshot)
+  override val syncState: StateFlow<DatasetSyncUiSnapshot> = _syncState.asStateFlow()
+
+  var nextCheckResults: Map<String, RemoteDatasetUpdateResult> =
+    mapOf(
+      DatasetSeedDefaults.ADULT_DATASET_ID to
+        RemoteDatasetUpdateResult.Disabled("Remote updates disabled in test fake."),
+      DatasetSeedDefaults.SOCIAL_DATASET_ID to
+        RemoteDatasetUpdateResult.Disabled("Remote updates disabled in test fake."),
+    )
+  var nextImportOutcome: SignedPackageImportOutcome =
+    SignedPackageImportOutcome.Rejected("No trusted key configured in fake.")
+  var checkCalls: Int = 0
+  var scheduleSyncCalls: Int = 0
+
+  fun setSnapshot(snapshot: DatasetSyncUiSnapshot) {
+    _syncState.value = snapshot
+  }
+
+  override suspend fun runUpdateCheck(
+    targetDatasetId: String?,
+  ): Map<String, RemoteDatasetUpdateResult> {
+    checkCalls += 1
+    val first = nextCheckResults.values.firstOrNull()
+    when (first) {
+      is RemoteDatasetUpdateResult.Disabled ->
+        _syncState.update { it.copy(statusMessage = first.reason, errorMessage = null) }
+      is RemoteDatasetUpdateResult.Failed ->
+        _syncState.update { it.copy(statusMessage = null, errorMessage = first.reason) }
+      is RemoteDatasetUpdateResult.Updated ->
+        _syncState.update { it.copy(statusMessage = "Updated dataset.", errorMessage = null) }
+      is RemoteDatasetUpdateResult.UpToDate ->
+        _syncState.update { it.copy(statusMessage = "Datasets up to date.", errorMessage = null) }
+      null -> Unit
+    }
+    return nextCheckResults
+  }
+
+  override suspend fun importSignedLocalPackage(
+    rawJsonBytes: ByteArray,
+  ): SignedPackageImportOutcome {
+    when (val res = nextImportOutcome) {
+      is SignedPackageImportOutcome.Success ->
+        _syncState.update {
+          it.copy(
+            statusMessage = "Verified dataset imported (v${res.result.metadata.versionCode}).",
+            errorMessage = null,
+          )
+        }
+      is SignedPackageImportOutcome.Rejected ->
+        _syncState.update { it.copy(statusMessage = null, errorMessage = res.reason) }
+    }
+    return nextImportOutcome
+  }
+
+  override suspend fun rollbackDataset(
+    datasetId: String,
+  ): PersistenceResult<FilterDatasetMetadata> {
+    val result = domainFilterRepository.rollbackDataset(datasetId)
+    when (result) {
+      is PersistenceResult.Success ->
+        _syncState.update {
+          it.copy(
+            statusMessage = "Rolled back dataset to v${result.data.versionCode}.",
+            errorMessage = null,
+          )
+        }
+      is PersistenceResult.Failure ->
+        _syncState.update { it.copy(statusMessage = null, errorMessage = "No rollback snapshot.") }
+    }
+    return result
+  }
+
+  override suspend fun syncPeriodicSchedule() {
+    scheduleSyncCalls += 1
+  }
 }
 
 class FakeVpnFilterMonitor(

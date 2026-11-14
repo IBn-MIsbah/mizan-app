@@ -21,6 +21,9 @@ import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -30,10 +33,14 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.R
+import com.example.core.designsystem.component.ContextualGuideSheet
+import com.example.core.designsystem.component.ContextualHelpButton
 import com.example.core.designsystem.component.MizanFlowTopBar
-import com.example.core.designsystem.component.MizanScopeNoticeCard
+import com.example.core.designsystem.component.MizanSlideDeck
 import com.example.core.designsystem.component.MizanSurfaceCard
 import com.example.core.time.WallClockFormatting
+import com.example.feature.guide.ContextualGuideCatalog
+import com.example.feature.guide.ContextualGuideContext
 import com.example.feature.home.RulesSummaryBlock
 import kotlinx.coroutines.flow.collectLatest
 
@@ -42,6 +49,7 @@ fun CommitmentReviewRoute(
   onNavigateBack: () -> Unit,
   onActivated: () -> Unit,
   modifier: Modifier = Modifier,
+  onOpenUserGuide: (sectionId: String?, walkthroughMode: Boolean) -> Unit = { _, _ -> },
   viewModel: CommitmentReviewViewModel = hiltViewModel(),
 ) {
   val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -60,6 +68,7 @@ fun CommitmentReviewRoute(
     onActivate = viewModel::activateCommitment,
     onRetry = viewModel::loadReview,
     onNavigateBack = onNavigateBack,
+    onOpenUserGuide = onOpenUserGuide,
     modifier = modifier,
   )
 }
@@ -72,7 +81,22 @@ fun CommitmentReviewScreen(
   onRetry: () -> Unit,
   onNavigateBack: () -> Unit,
   modifier: Modifier = Modifier,
+  onOpenUserGuide: (sectionId: String?, walkthroughMode: Boolean) -> Unit = { _, _ -> },
 ) {
+  var showReviewGuide by remember { mutableStateOf(false) }
+
+  if (showReviewGuide) {
+    ContextualGuideSheet(
+      title = ContextualGuideCatalog.titleFor(ContextualGuideContext.REVIEW),
+      slides = ContextualGuideCatalog.slidesFor(ContextualGuideContext.REVIEW),
+      onDismiss = { showReviewGuide = false },
+      testTagPrefix = "review_contextual_guide_sheet",
+      onOpenFullGuide = {
+        onOpenUserGuide(ContextualGuideCatalog.topicIdFor(ContextualGuideContext.REVIEW), false)
+      },
+    )
+  }
+
   Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
     LazyColumn(
       modifier = Modifier.fillMaxWidth().widthIn(max = 640.dp).testTag("review_screen_list"),
@@ -80,11 +104,23 @@ fun CommitmentReviewScreen(
       verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
       item {
-        MizanFlowTopBar(
-          title = stringResource(R.string.review_headline),
-          onNavigateBack = onNavigateBack,
-          backTestTag = "review_back_button",
-        )
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+          MizanFlowTopBar(
+            title = stringResource(R.string.review_headline),
+            onNavigateBack = onNavigateBack,
+            backTestTag = "review_back_button",
+            modifier = Modifier.weight(1f),
+          )
+          ContextualHelpButton(
+            onClick = { showReviewGuide = true },
+            contentDescription = stringResource(R.string.guide_contextual_help_cd),
+            testTag = "review_contextual_help_button",
+          )
+        }
       }
 
       item {
@@ -168,9 +204,18 @@ fun CommitmentReviewScreen(
           }
 
           item {
-            MizanScopeNoticeCard(
-              title = stringResource(R.string.review_limitations_title),
-              body = stringResource(R.string.review_limitations_body),
+            Text(
+              text = stringResource(R.string.review_limitations_slides_title),
+              style = MaterialTheme.typography.titleSmall,
+              color = MaterialTheme.colorScheme.onBackground,
+            )
+          }
+
+          item {
+            MizanSlideDeck(
+              slides = ContextualGuideCatalog.reviewLimitationsSlides,
+              testTagPrefix = "review_limitations_slides_deck",
+              compactVisualPadding = true,
             )
           }
 

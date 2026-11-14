@@ -19,7 +19,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.layout.Row
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -28,11 +32,15 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.R
+import com.example.core.designsystem.component.ContextualGuideSheet
+import com.example.core.designsystem.component.ContextualHelpButton
 import com.example.core.designsystem.component.MizanFlowTopBar
 import com.example.core.designsystem.component.MizanStatusBadge
 import com.example.core.designsystem.component.MizanSurfaceCard
 import com.example.core.time.WallClockFormatting
 import com.example.domain.model.CompletionNextStep
+import com.example.feature.guide.ContextualGuideCatalog
+import com.example.feature.guide.ContextualGuideContext
 import com.example.feature.home.RulesSummaryBlock
 import kotlinx.coroutines.flow.collectLatest
 
@@ -42,6 +50,7 @@ fun CommitmentCompletionRoute(
   onNavigateToDashboard: () -> Unit,
   onNavigateToSetup: () -> Unit,
   modifier: Modifier = Modifier,
+  onOpenUserGuide: (sectionId: String?, walkthroughMode: Boolean) -> Unit = { _, _ -> },
   viewModel: CommitmentCompletionViewModel = hiltViewModel(),
 ) {
   val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -60,6 +69,7 @@ fun CommitmentCompletionRoute(
     onSelectNextStep = viewModel::selectNextStep,
     onNavigateBack = onNavigateBack,
     onNavigateToDashboard = onNavigateToDashboard,
+    onOpenUserGuide = onOpenUserGuide,
     modifier = modifier,
   )
 }
@@ -71,7 +81,22 @@ fun CommitmentCompletionScreen(
   onNavigateBack: () -> Unit,
   onNavigateToDashboard: () -> Unit,
   modifier: Modifier = Modifier,
+  onOpenUserGuide: (sectionId: String?, walkthroughMode: Boolean) -> Unit = { _, _ -> },
 ) {
+  var showCompletionGuide by remember { mutableStateOf(false) }
+
+  if (showCompletionGuide) {
+    ContextualGuideSheet(
+      title = ContextualGuideCatalog.titleFor(ContextualGuideContext.COMPLETION),
+      slides = ContextualGuideCatalog.slidesFor(ContextualGuideContext.COMPLETION),
+      onDismiss = { showCompletionGuide = false },
+      testTagPrefix = "completion_contextual_guide_sheet",
+      onOpenFullGuide = {
+        onOpenUserGuide(ContextualGuideCatalog.topicIdFor(ContextualGuideContext.COMPLETION), false)
+      },
+    )
+  }
+
   Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
     LazyColumn(
       modifier = Modifier.fillMaxWidth().widthIn(max = 640.dp).testTag("completion_screen_list"),
@@ -79,11 +104,23 @@ fun CommitmentCompletionScreen(
       verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
       item {
-        MizanFlowTopBar(
-          title = stringResource(R.string.completion_headline),
-          onNavigateBack = onNavigateBack,
-          backTestTag = "completion_back_button",
-        )
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+          MizanFlowTopBar(
+            title = stringResource(R.string.completion_headline),
+            onNavigateBack = onNavigateBack,
+            backTestTag = "completion_back_button",
+            modifier = Modifier.weight(1f),
+          )
+          ContextualHelpButton(
+            onClick = { showCompletionGuide = true },
+            contentDescription = stringResource(R.string.guide_contextual_help_cd),
+            testTag = "completion_contextual_help_button",
+          )
+        }
       }
 
       when (uiState) {

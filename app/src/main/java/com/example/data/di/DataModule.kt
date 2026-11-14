@@ -1,8 +1,15 @@
 package com.example.data.di
 
+import com.example.data.filter.AndroidUpdateNetworkPolicyChecker
+import com.example.data.filter.DatasetFeedPolicy
+import com.example.data.filter.EcdsaDomainDatasetSignatureVerifier
+import com.example.data.filter.FeedHttpFetcher
+import com.example.data.filter.HttpUrlConnectionFeedFetcher
+import com.example.data.filter.SignedRemoteDatasetUpdater
+import com.example.data.filter.TrustedDatasetKeyConfig
+import com.example.data.filter.UpdateNetworkPolicyChecker
 import com.example.data.repository.DataStoreUserPreferencesRepository
 import com.example.data.repository.DefaultFoundationRepository
-import com.example.data.repository.DisabledRemoteDatasetUpdater
 import com.example.data.repository.RoomAccountabilityMetadataRepository
 import com.example.data.repository.RoomCommitmentRepository
 import com.example.data.repository.RoomDailyUsageRepository
@@ -21,7 +28,6 @@ import com.example.domain.repository.DailyUsageRepository
 import com.example.domain.repository.DomainDatasetSignatureVerifier
 import com.example.domain.repository.DomainFilterRepository
 import com.example.domain.repository.FoundationRepository
-import com.example.domain.repository.NoTrustedKeySignatureVerifier
 import com.example.domain.repository.RemovalRequestRepository
 import com.example.domain.repository.RemoteDatasetUpdater
 import com.example.domain.repository.SecurityEventRepository
@@ -53,8 +59,26 @@ abstract class DataModule {
 
   @Binds
   @Singleton
+  abstract fun bindSignatureVerifier(
+    impl: EcdsaDomainDatasetSignatureVerifier,
+  ): DomainDatasetSignatureVerifier
+
+  @Binds
+  @Singleton
+  abstract fun bindFeedHttpFetcher(
+    impl: HttpUrlConnectionFeedFetcher,
+  ): FeedHttpFetcher
+
+  @Binds
+  @Singleton
+  abstract fun bindUpdateNetworkPolicyChecker(
+    impl: AndroidUpdateNetworkPolicyChecker,
+  ): UpdateNetworkPolicyChecker
+
+  @Binds
+  @Singleton
   abstract fun bindRemoteDatasetUpdater(
-    impl: DisabledRemoteDatasetUpdater,
+    impl: SignedRemoteDatasetUpdater,
   ): RemoteDatasetUpdater
 
   @Binds
@@ -102,8 +126,23 @@ abstract class DataModule {
   ): UserPreferencesRepository
 
   companion object {
+    /**
+     * Unresolved trust decision: no pinned ECDSA public key is bundled until MIZAN key
+     * distribution is provisioned. Leaves signature verification fail-closed.
+     */
     @Provides
     @Singleton
-    fun provideSignatureVerifier(): DomainDatasetSignatureVerifier = NoTrustedKeySignatureVerifier()
+    fun provideTrustedDatasetKeyConfig(): TrustedDatasetKeyConfig =
+      TrustedDatasetKeyConfig(pinnedPublicKeySpkiBase64 = null)
+
+    /**
+     * Unresolved trust decision: no vetted remote blocklist endpoints are configured in this build.
+     * Keeps background remote updates disabled while allowing offline custom rules and verified
+     * local signed-package infrastructure.
+     */
+    @Provides
+    @Singleton
+    fun provideDatasetFeedPolicy(): DatasetFeedPolicy =
+      DatasetFeedPolicy(remoteUpdatesEnabled = false)
   }
 }

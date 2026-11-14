@@ -6,6 +6,10 @@ import com.example.platform.apps.PackageManagerInstalledAppRepository
 import com.example.platform.enforcement.AndroidBlockingUiLauncher
 import com.example.platform.enforcement.AppPackageName
 import com.example.platform.enforcement.BlockingUiLauncher
+import com.example.platform.filter.DatasetSyncController
+import com.example.platform.filter.DatasetUpdateScheduler
+import com.example.platform.filter.DefaultDatasetSyncController
+import com.example.platform.filter.WorkManagerDatasetUpdateScheduler
 import com.example.platform.health.AndroidBatteryOptimizationMonitor
 import com.example.platform.health.AndroidEnforcementHealthMonitor
 import com.example.platform.health.AndroidUsageAccessMonitor
@@ -83,6 +87,18 @@ abstract class PlatformBindingsModule {
   abstract fun bindUsageStatsHistorySource(
     impl: AndroidUsageStatsHistorySource
   ): UsageStatsHistorySource
+
+  @Binds
+  @Singleton
+  abstract fun bindDatasetUpdateScheduler(
+    impl: WorkManagerDatasetUpdateScheduler
+  ): DatasetUpdateScheduler
+
+  @Binds
+  @Singleton
+  abstract fun bindDatasetSyncController(
+    impl: DefaultDatasetSyncController
+  ): DatasetSyncController
 }
 
 @Module

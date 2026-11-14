@@ -26,6 +26,12 @@ sealed interface MizanRoute {
   @Serializable data class EmergencyTermination(val commitmentId: String) : MizanRoute
 
   @Serializable data object Settings : MizanRoute
+
+  @Serializable
+  data class InteractiveGuide(
+    val sectionId: String? = null,
+    val walkthroughMode: Boolean = false,
+  ) : MizanRoute
 }
 
 enum class TopLevelDestination(

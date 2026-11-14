@@ -1,5 +1,7 @@
 package com.example.core.designsystem.component
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,6 +20,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -269,7 +272,14 @@ private fun WeeklyTrendBarChart(
               .padding(vertical = 4.dp),
           contentAlignment = Alignment.BottomCenter,
         ) {
-          val heightFraction = if (minutes == 0L) 0.08f else ratio.coerceAtLeast(0.14f)
+          val reducedMotion = LocalMizanReducedMotion.current
+          val targetFraction = if (minutes == 0L) 0.08f else ratio.coerceAtLeast(0.14f)
+          val heightFraction by
+            animateFloatAsState(
+              targetValue = targetFraction,
+              animationSpec = tween(durationMillis = if (reducedMotion) 0 else 360),
+              label = "trend_bar_height_$index",
+            )
           Box(
             modifier =
               Modifier.fillMaxWidth(0.65f)

@@ -46,6 +46,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.example.R
+import com.example.core.designsystem.component.ContextualHelpButton
 import com.example.core.designsystem.component.MizanSurfaceCard
 import com.example.core.time.WallClockFormatting
 import com.example.domain.model.AllowlistCategory
@@ -57,15 +58,43 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 @Composable
+private fun SectionHeaderWithHelp(
+  title: String,
+  onShowHelp: (() -> Unit)?,
+  helpTestTag: String,
+) {
+  Row(
+    modifier = Modifier.fillMaxWidth(),
+    verticalAlignment = Alignment.CenterVertically,
+    horizontalArrangement = Arrangement.SpaceBetween,
+  ) {
+    Text(
+      text = title,
+      style = MaterialTheme.typography.titleMedium,
+      color = MaterialTheme.colorScheme.onSurface,
+      modifier = Modifier.weight(1f),
+    )
+    if (onShowHelp != null) {
+      ContextualHelpButton(
+        onClick = onShowHelp,
+        contentDescription = stringResource(R.string.guide_contextual_help_cd),
+        testTag = helpTestTag,
+      )
+    }
+  }
+}
+
+@Composable
 internal fun ModeSelectionCard(
   selectedMode: RestrictionMode,
   onSelectMode: (RestrictionMode) -> Unit,
+  onShowHelp: (() -> Unit)? = null,
 ) {
   MizanSurfaceCard(modifier = Modifier.testTag("setup_mode_card")) {
-    Text(
-      text = stringResource(R.string.setup_mode_title),
-      style = MaterialTheme.typography.titleMedium,
-      color = MaterialTheme.colorScheme.onSurface,
+    SectionHeaderWithHelp(
+      title = stringResource(R.string.setup_mode_title),
+      onShowHelp = onShowHelp,
+      helpTestTag = "setup_mode_help_button",
     )
     RestrictionMode.entries.forEach { mode ->
       val (titleRes, descRes) =
@@ -114,6 +143,7 @@ internal fun RestrictedAppsSelectionCard(
   onCustomPackageChange: (String) -> Unit,
   onAddCustom: () -> Unit,
   onRemoveApp: (AppId) -> Unit,
+  onShowHelp: (() -> Unit)? = null,
 ) {
   val restrictableInstalled =
     editor.installedApps
@@ -128,10 +158,10 @@ internal fun RestrictedAppsSelectionCard(
   val installedPackageSet = editor.installedApps.map { it.appId }.toSet()
 
   MizanSurfaceCard(modifier = Modifier.testTag("setup_restricted_apps_card")) {
-    Text(
-      text = stringResource(R.string.setup_restricted_title),
-      style = MaterialTheme.typography.titleMedium,
-      color = MaterialTheme.colorScheme.onSurface,
+    SectionHeaderWithHelp(
+      title = stringResource(R.string.setup_restricted_title),
+      onShowHelp = onShowHelp,
+      helpTestTag = "setup_restricted_help_button",
     )
     Text(
       text = stringResource(R.string.setup_installed_apps_note),
@@ -237,6 +267,7 @@ internal fun AllowlistSelectionCard(
   onCategoryChange: (AllowlistCategory) -> Unit,
   onAddCustom: () -> Unit,
   onRemoveApp: (AppId) -> Unit,
+  onShowHelp: (() -> Unit)? = null,
 ) {
   val installedFiltered =
     editor.installedApps
@@ -251,10 +282,10 @@ internal fun AllowlistSelectionCard(
   val installedPackageSet = editor.installedApps.map { it.appId }.toSet()
 
   MizanSurfaceCard(modifier = Modifier.testTag("setup_allowlist_card")) {
-    Text(
-      text = stringResource(R.string.setup_allowlist_title),
-      style = MaterialTheme.typography.titleMedium,
-      color = MaterialTheme.colorScheme.onSurface,
+    SectionHeaderWithHelp(
+      title = stringResource(R.string.setup_allowlist_title),
+      onShowHelp = onShowHelp,
+      helpTestTag = "setup_allowlist_help_button",
     )
     Text(
       text = stringResource(R.string.setup_allowlist_desc),
@@ -486,23 +517,38 @@ internal fun ScheduleBuilderCard(
   onAdjustEnd: (Int) -> Unit,
   onAddWindow: () -> Unit,
   onRemoveWindow: (Int) -> Unit,
+  onShowHelp: (() -> Unit)? = null,
 ) {
   MizanSurfaceCard(modifier = Modifier.testTag("setup_schedule_card")) {
     Row(
+      modifier = Modifier.fillMaxWidth(),
       verticalAlignment = Alignment.CenterVertically,
-      horizontalArrangement = Arrangement.spacedBy(8.dp),
+      horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-      Icon(
-        imageVector = Icons.Outlined.Schedule,
-        contentDescription = stringResource(R.string.cd_schedule_icon),
-        tint = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.size(20.dp),
-      )
-      Text(
-        text = stringResource(R.string.setup_schedule_title),
-        style = MaterialTheme.typography.titleMedium,
-        color = MaterialTheme.colorScheme.onSurface,
-      )
+      Row(
+        modifier = Modifier.weight(1f),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+      ) {
+        Icon(
+          imageVector = Icons.Outlined.Schedule,
+          contentDescription = stringResource(R.string.cd_schedule_icon),
+          tint = MaterialTheme.colorScheme.primary,
+          modifier = Modifier.size(20.dp),
+        )
+        Text(
+          text = stringResource(R.string.setup_schedule_title),
+          style = MaterialTheme.typography.titleMedium,
+          color = MaterialTheme.colorScheme.onSurface,
+        )
+      }
+      if (onShowHelp != null) {
+        ContextualHelpButton(
+          onClick = onShowHelp,
+          contentDescription = stringResource(R.string.guide_contextual_help_cd),
+          testTag = "setup_schedule_help_button",
+        )
+      }
     }
     Text(
       text = stringResource(R.string.setup_schedule_desc),
@@ -626,12 +672,13 @@ internal fun AllowanceSelectionCard(
   allowanceMinutes: Int,
   onSetAllowance: (Int) -> Unit,
   onAdjustAllowance: (Int) -> Unit,
+  onShowHelp: (() -> Unit)? = null,
 ) {
   MizanSurfaceCard(modifier = Modifier.testTag("setup_allowance_card")) {
-    Text(
-      text = stringResource(R.string.setup_allowance_title),
-      style = MaterialTheme.typography.titleMedium,
-      color = MaterialTheme.colorScheme.onSurface,
+    SectionHeaderWithHelp(
+      title = stringResource(R.string.setup_allowance_title),
+      onShowHelp = onShowHelp,
+      helpTestTag = "setup_allowance_help_button",
     )
     Text(
       text = stringResource(R.string.setup_allowance_desc),
@@ -692,12 +739,13 @@ internal fun WebsiteFilteringSetupCard(
   onAddAllowedDomain: () -> Unit,
   onRemoveDomain: (com.example.domain.model.DomainName, com.example.domain.model.DomainRuleType) -> Unit,
   onToggleCategory: (com.example.domain.model.DomainCategory) -> Unit,
+  onShowHelp: (() -> Unit)? = null,
 ) {
   MizanSurfaceCard(modifier = Modifier.testTag("setup_website_filtering_card")) {
-    Text(
-      text = stringResource(R.string.setup_website_title),
-      style = MaterialTheme.typography.titleMedium,
-      color = MaterialTheme.colorScheme.onSurface,
+    SectionHeaderWithHelp(
+      title = stringResource(R.string.setup_website_title),
+      onShowHelp = onShowHelp,
+      helpTestTag = "setup_website_help_button",
     )
     Text(
       text = stringResource(R.string.setup_website_desc),
@@ -825,22 +873,38 @@ internal fun WebsiteFilteringSetupCard(
 
     categories.forEach { (category, label) ->
       val meta = editor.datasetMetadata.firstOrNull { it.category == category }
+      val evalNow =
+        if (editor.datasetEvalEpochMillis > 0L) {
+          editor.datasetEvalEpochMillis
+        } else {
+          System.currentTimeMillis()
+        }
       val statusNote =
-        when (meta?.trustStatus) {
-          com.example.domain.model.DatasetTrustStatus.INSTALLED_VERIFIED ->
-            if (meta.recordCount > 0) {
-              "Installed & verified (${meta.recordCount} domains · v${meta.versionCode})"
-            } else {
-              "Dataset empty (0 domains)"
-            }
-          com.example.domain.model.DatasetTrustStatus.INVALID_SIGNATURE ->
-            "Invalid signature — rejected"
-          com.example.domain.model.DatasetTrustStatus.CORRUPT_OR_REJECTED ->
-            "Corrupt or rejected — check local dataset"
-          com.example.domain.model.DatasetTrustStatus.REMOTE_UPDATES_DISABLED ->
-            "Remote updates disabled"
-          com.example.domain.model.DatasetTrustStatus.MISSING_OR_EMPTY,
-          null -> "Missing / empty — remote updates disabled (no signed feed configured)"
+        if (meta == null) {
+          "Unavailable — remote updates disabled (no signed feed configured)"
+        } else {
+          when (
+            com.example.domain.model.DatasetStatusEvaluator.evaluate(
+              metadata = meta,
+              isUpdating = false,
+              nowEpochMillis = evalNow,
+            )
+          ) {
+            com.example.domain.model.DatasetAvailabilityStatus.AVAILABLE ->
+              "Available · v${meta.versionCode} (${meta.recordCount} domains verified)"
+            com.example.domain.model.DatasetAvailabilityStatus.UPDATING ->
+              "Updating…"
+            com.example.domain.model.DatasetAvailabilityStatus.OUTDATED ->
+              "Outdated · cached v${meta.versionCode} (${meta.recordCount} domains still active)"
+            com.example.domain.model.DatasetAvailabilityStatus.FAILED ->
+              if (meta.isUsable) {
+                "Failed — cached v${meta.versionCode} (${meta.recordCount} domains active): ${meta.lastError ?: "update rejected"}"
+              } else {
+                "Failed — ${meta.lastError ?: "dataset verification rejected"}"
+              }
+            com.example.domain.model.DatasetAvailabilityStatus.UNAVAILABLE ->
+              "Unavailable — ${meta.lastError ?: "no verified dataset cached locally"}"
+          }
         }
 
       Row(
@@ -875,12 +939,13 @@ internal fun WebsiteFilteringSetupCard(
 internal fun AccountabilityPinSetupCard(
   editor: DraftEditorState,
   onToggleRequirePin: (Boolean) -> Unit,
+  onShowHelp: (() -> Unit)? = null,
 ) {
   MizanSurfaceCard(modifier = Modifier.testTag("setup_pin_card")) {
-    Text(
-      text = stringResource(R.string.setup_pin_title),
-      style = MaterialTheme.typography.titleMedium,
-      color = MaterialTheme.colorScheme.onSurface,
+    SectionHeaderWithHelp(
+      title = stringResource(R.string.setup_pin_title),
+      onShowHelp = onShowHelp,
+      helpTestTag = "setup_pin_help_button",
     )
     Row(
       modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {},

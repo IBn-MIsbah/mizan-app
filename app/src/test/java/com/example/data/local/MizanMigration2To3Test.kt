@@ -181,7 +181,10 @@ class MizanMigration2To3Test {
         val filterRepo =
           RoomDomainFilterRepository(
             domainFilterDao = roomDb.domainFilterDao(),
-            signatureVerifier = com.example.domain.repository.NoTrustedKeySignatureVerifier(),
+            signatureVerifier =
+              com.example.data.filter.EcdsaDomainDatasetSignatureVerifier(
+                com.example.data.filter.TrustedDatasetKeyConfig()
+              ),
             timeProvider = timeProvider,
             dispatcherProvider = dispatchers,
           )
