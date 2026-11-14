@@ -15,6 +15,7 @@ import com.example.domain.repository.PersistenceError
 import com.example.platform.health.AccessibilityPermissionStatus
 import com.example.platform.health.UsageAccessPermissionStatus
 import com.example.testing.FakeAccountabilityMetadataRepository
+import com.example.testing.FakeBatteryOptimizationMonitor
 import com.example.testing.FakeCommitmentRepository
 import com.example.testing.FakeDailyUsageRepository
 import com.example.testing.FakeEnforcementHealthMonitor
@@ -42,6 +43,7 @@ class HomeViewModelTest {
   private val timeProvider = FakeTimeProvider()
   private val healthMonitor = FakeEnforcementHealthMonitor()
   private val usageAccessMonitor = FakeUsageAccessMonitor()
+  private val batteryMonitor = FakeBatteryOptimizationMonitor()
   private val vpnFilterMonitor = FakeVpnFilterMonitor()
   private val userPreferencesRepository = FakeUserPreferencesRepository()
   private val rules =
@@ -62,6 +64,7 @@ class HomeViewModelTest {
       userPreferencesRepository = userPreferencesRepository,
       enforcementHealthMonitor = healthMonitor,
       usageAccessMonitor = usageAccessMonitor,
+      batteryOptimizationMonitor = batteryMonitor,
       vpnFilterMonitor = vpnFilterMonitor,
       usageStatsReconciler =
         createTestUsageReconciler(

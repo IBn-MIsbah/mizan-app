@@ -8,6 +8,7 @@ import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
 import com.example.domain.lifecycle.CommitmentResult
@@ -101,7 +102,10 @@ class MizanFlowsRobolectricTest {
     composeTestRule
       .onNodeWithTag("home_screen_list")
       .performScrollToNode(hasTestTag("dashboard_emergency_terminate_button"))
-    composeTestRule.onNodeWithTag("dashboard_emergency_terminate_button").performClick()
+    composeTestRule
+      .onNodeWithTag("dashboard_emergency_terminate_button")
+      .performScrollTo()
+      .performClick()
 
     // Warning confirmation required
     composeTestRule.waitUntilTag("emergency_consequence_card")
@@ -109,9 +113,13 @@ class MizanFlowsRobolectricTest {
       .onNodeWithTag("emergency_screen_list")
       .performScrollToNode(hasTestTag("emergency_confirm_card"))
     composeTestRule.onNodeWithTag("emergency_confirm_button").assertIsNotEnabled()
-    composeTestRule.onNodeWithTag("emergency_confirm_checkbox").performClick()
+    composeTestRule.onNodeWithTag("emergency_confirm_checkbox").performScrollTo().performClick()
     composeTestRule.waitForIdle()
-    composeTestRule.onNodeWithTag("emergency_confirm_button").assertIsEnabled().performClick()
+    composeTestRule
+      .onNodeWithTag("emergency_confirm_button")
+      .performScrollTo()
+      .assertIsEnabled()
+      .performClick()
 
     // Dashboard now renders Emergency Terminated state
     composeTestRule.waitUntilTag("dashboard_terminated_card")

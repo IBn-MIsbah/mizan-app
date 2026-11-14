@@ -28,6 +28,7 @@ import com.example.domain.model.InstalledAppInfo
 import com.example.domain.model.RestrictedApp
 import com.example.domain.model.RestrictionMode
 import com.example.domain.model.ScheduleWindow
+import com.example.domain.repository.AccountabilityMetadataRepository
 import com.example.domain.repository.CommitmentRepository
 import com.example.domain.repository.DomainFilterRepository
 import com.example.domain.repository.InstalledAppRepository
@@ -93,6 +94,8 @@ data class DraftEditorState(
   val blockedDomainCategories: Set<DomainCategory> = emptySet(),
   val customDomainInput: String = "",
   val datasetMetadata: List<FilterDatasetMetadata> = DatasetSeedDefaults.defaultMetadata(),
+  val isPinConfigured: Boolean = false,
+  val requirePinForEmergencyTermination: Boolean = false,
   val validationMessages: List<String> = emptyList(),
   val statusMessage: String? = null,
   val isSaving: Boolean = false,
@@ -119,6 +122,7 @@ constructor(
   private val commitmentRepository: CommitmentRepository,
   private val installedAppRepository: InstalledAppRepository,
   private val domainFilterRepository: DomainFilterRepository,
+  private val accountabilityMetadataRepository: AccountabilityMetadataRepository,
   private val timeProvider: TimeProvider,
   private val idGenerator: IdGenerator,
 ) : ViewModel() {
@@ -165,8 +169,9 @@ constructor(
     combine(
         commitmentRepository.observeAllCommitments(),
         domainFilterRepository.observeDatasets(),
+        accountabilityMetadataRepository.observeMetadata(),
         editorState,
-      ) { commitmentsResult, datasetsResult, editor ->
+      ) { commitmentsResult, datasetsResult, metadataResult, editor ->
         val datasets =
           when (datasetsResult) {
             is PersistenceResult.Success ->
@@ -174,6 +179,8 @@ constructor(
               else datasetsResult.data
             is PersistenceResult.Failure -> editor.datasetMetadata
           }
+        val pinConfigured =
+          metadataResult is PersistenceResult.Success && metadataResult.data.isPinEnabled
 
         when (commitmentsResult) {
           is PersistenceResult.Failure ->
@@ -202,6 +209,9 @@ constructor(
                     blockedDomains = latestDraft.rules.blockedDomains,
                     blockedDomainCategories = latestDraft.rules.blockedDomainCategories,
                     datasetMetadata = datasets,
+                    isPinConfigured = pinConfigured,
+                    requirePinForEmergencyTermination =
+                      latestDraft.rules.requirePinForEmergencyTermination,
                     validationMessages = emptyList(),
                   )
                 editorState.value = hydrated
@@ -214,12 +224,17 @@ constructor(
                     installedAppsLoaded = editor.installedAppsLoaded,
                     installedAppsError = editor.installedAppsError,
                     datasetMetadata = datasets,
+                    isPinConfigured = pinConfigured,
                   )
                 editorState.value = reset
                 CommitmentSetupUiState.Editing(reset)
               } else {
                 CommitmentSetupUiState.Editing(
-                  editor.copy(existingDraft = latestDraft, datasetMetadata = datasets)
+                  editor.copy(
+                    existingDraft = latestDraft,
+                    datasetMetadata = datasets,
+                    isPinConfigured = pinConfigured,
+                  )
                 )
               }
             }
@@ -577,6 +592,16 @@ constructor(
     }
   }
 
+  fun setRequirePinForEmergencyTermination(requirePin: Boolean) {
+    updateEditor { current ->
+      current.copy(
+        requirePinForEmergencyTermination = requirePin,
+        validationMessages = emptyList(),
+        statusMessage = null,
+      )
+    }
+  }
+
   fun toggleDomainCategory(category: DomainCategory) {
     if (category == DomainCategory.CUSTOM) return
     updateEditor { current ->
@@ -637,6 +662,19 @@ constructor(
     val current = editorState.value
     if (current.isSaving) return
 
+    if (current.requirePinForEmergencyTermination && !current.isPinConfigured) {
+      updateEditor {
+        it.copy(
+          validationMessages =
+            listOf(
+              "Accountability PIN protection is enabled, but no local PIN is configured yet. Configure a PIN in Settings first or turn off PIN protection."
+            ),
+          statusMessage = null,
+        )
+      }
+      return
+    }
+
     val rules = buildRules(current)
     when (val validation = CommitmentRulesValidator.validateForActivation(rules)) {
       is RulesValidationResult.Invalid -> {
@@ -686,7 +724,7 @@ constructor(
       allowedApps = state.allowedApps,
       scheduleWindows = state.scheduleWindows,
       dailyAllowance = state.dailyAllowanceMinutes.minutes,
-      requirePinForEmergencyTermination = false,
+      requirePinForEmergencyTermination = state.requirePinForEmergencyTermination,
       websiteFilteringEnabled = state.websiteFilteringEnabled,
       blockedDomains = state.blockedDomains,
       blockedDomainCategories = state.blockedDomainCategories,

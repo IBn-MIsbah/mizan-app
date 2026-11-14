@@ -5,6 +5,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.core.common.toDisplayMessage
 import com.example.domain.allowance.SharedAllowanceAccountant
+import com.example.domain.insights.DashboardInsights
+import com.example.domain.insights.UsageInsightsCalculator
 import com.example.domain.model.AccountabilityMetadata
 import com.example.domain.model.Commitment
 import com.example.domain.model.DailyUsage
@@ -15,6 +17,8 @@ import com.example.domain.repository.DailyUsageRepository
 import com.example.domain.repository.PersistenceResult
 import com.example.domain.repository.UserPreferencesRepository
 import com.example.domain.time.TimeProvider
+import com.example.platform.health.BatteryOptimizationMonitor
+import com.example.platform.health.BatteryOptimizationSnapshot
 import com.example.platform.health.EnforcementHealthMonitor
 import com.example.platform.health.EnforcementHealthSnapshot
 import com.example.platform.health.EnforcementHealthStatus
@@ -82,7 +86,9 @@ data class DashboardContent(
   val isPinEnabled: Boolean,
   val healthSnapshot: EnforcementHealthSnapshot = EnforcementHealthSnapshot(),
   val usageAccessSnapshot: UsageAccessSnapshot = UsageAccessSnapshot(),
+  val batteryOptimizationSnapshot: BatteryOptimizationSnapshot = BatteryOptimizationSnapshot(),
   val vpnFilterSnapshot: VpnFilterSnapshot = VpnFilterSnapshot(),
+  val insights: DashboardInsights? = null,
 )
 
 sealed interface DashboardUiState {
@@ -104,6 +110,7 @@ constructor(
   private val userPreferencesRepository: UserPreferencesRepository,
   private val enforcementHealthMonitor: EnforcementHealthMonitor,
   private val usageAccessMonitor: UsageAccessMonitor,
+  private val batteryOptimizationMonitor: BatteryOptimizationMonitor,
   private val vpnFilterMonitor: VpnFilterMonitor,
   private val usageStatsReconciler: UsageStatsReconciler,
   private val timeProvider: TimeProvider,
@@ -111,32 +118,32 @@ constructor(
 
   private val refreshTrigger = MutableStateFlow(0)
 
+  private val systemMonitorsFlow =
+    combine(
+      enforcementHealthMonitor.healthState,
+      usageAccessMonitor.usageAccessState,
+      batteryOptimizationMonitor.batteryState,
+      vpnFilterMonitor.vpnState,
+    ) { health, usageAccess, battery, vpn ->
+      SystemMonitors(health, usageAccess, battery, vpn)
+    }
+
   val uiState: StateFlow<DashboardUiState> =
     combine(
         commitmentRepository.observeAllCommitments(),
         accountabilityMetadataRepository.observeMetadata(),
-        enforcementHealthMonitor.healthState,
-        usageAccessMonitor.usageAccessState,
-        vpnFilterMonitor.vpnState,
-      ) { commitmentsResult, metadataResult, healthSnapshot, usageAccessSnapshot, vpnSnapshot ->
+        dailyUsageRepository.observeRecentDailyUsage(30),
+        systemMonitorsFlow,
+        refreshTrigger,
+      ) { commitmentsResult, metadataResult, recentUsageResult, monitors, _ ->
         DashboardInputs(
           commitmentsResult = commitmentsResult,
           metadataResult = metadataResult,
-          healthSnapshot = healthSnapshot,
-          usageAccessSnapshot = usageAccessSnapshot,
-          vpnFilterSnapshot = vpnSnapshot,
+          recentUsageResult = recentUsageResult,
+          monitors = monitors,
         )
       }
-      .combine(refreshTrigger) { inputs, _ -> inputs }
-      .flatMapLatest { inputs ->
-        buildDashboardFlow(
-          commitmentsResult = inputs.commitmentsResult,
-          metadataResult = inputs.metadataResult,
-          healthSnapshot = inputs.healthSnapshot,
-          usageAccessSnapshot = inputs.usageAccessSnapshot,
-          vpnFilterSnapshot = inputs.vpnFilterSnapshot,
-        )
-      }
+      .flatMapLatest { inputs -> buildDashboardFlow(inputs) }
       .stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000L),
@@ -146,6 +153,7 @@ constructor(
   fun refresh() {
     enforcementHealthMonitor.refreshSystemStatus()
     usageAccessMonitor.refreshSystemStatus()
+    batteryOptimizationMonitor.refreshSystemStatus()
     vpnFilterMonitor.refreshSystemStatus()
     refreshTrigger.value += 1
     triggerUsageReconciliation()
@@ -154,6 +162,7 @@ constructor(
   fun refreshEnforcementHealth() {
     enforcementHealthMonitor.refreshSystemStatus()
     usageAccessMonitor.refreshSystemStatus()
+    batteryOptimizationMonitor.refreshSystemStatus()
     vpnFilterMonitor.refreshSystemStatus()
     triggerUsageReconciliation()
   }
@@ -163,6 +172,9 @@ constructor(
 
   fun createUsageAccessSettingsIntent(): Intent =
     usageAccessMonitor.createUsageAccessSettingsIntent()
+
+  fun createBatteryOptimizationSettingsIntent(): Intent =
+    batteryOptimizationMonitor.createBatteryOptimizationSettingsIntent()
 
   fun prepareVpnIntent(): Intent? = vpnFilterMonitor.prepareVpnIntent()
 
@@ -196,34 +208,44 @@ constructor(
 
   private fun triggerUsageReconciliation() {
     viewModelScope.launch {
-      val activeResult = runCatching { commitmentRepository.observeActiveCommitment().first() }.getOrNull()
-      val active = (activeResult as? PersistenceResult.Success)?.data as? Commitment.Active ?: return@launch
+      val activeResult =
+        runCatching { commitmentRepository.observeActiveCommitment().first() }.getOrNull()
+      val active =
+        (activeResult as? PersistenceResult.Success)?.data as? Commitment.Active ?: return@launch
       runCatching { usageStatsReconciler.reconcileActiveCommitment(active) }
     }
   }
 
-  private fun buildDashboardFlow(
-    commitmentsResult: PersistenceResult<List<Commitment>>,
-    metadataResult: PersistenceResult<AccountabilityMetadata>,
-    healthSnapshot: EnforcementHealthSnapshot,
-    usageAccessSnapshot: UsageAccessSnapshot,
-    vpnFilterSnapshot: VpnFilterSnapshot,
-  ): Flow<DashboardUiState> {
+  private fun buildDashboardFlow(inputs: DashboardInputs): Flow<DashboardUiState> {
+    val commitmentsResult = inputs.commitmentsResult
     if (commitmentsResult is PersistenceResult.Failure) {
       return flowOf(DashboardUiState.Error(commitmentsResult.error.toDisplayMessage()))
     }
 
     val commitments = (commitmentsResult as PersistenceResult.Success).data
     val isPinEnabled =
-      when (metadataResult) {
-        is PersistenceResult.Success -> metadataResult.data.isPinEnabled
+      when (val meta = inputs.metadataResult) {
+        is PersistenceResult.Success -> meta.data.isPinEnabled
         is PersistenceResult.Failure -> false
       }
+    val recentUsages =
+      when (val usageRes = inputs.recentUsageResult) {
+        is PersistenceResult.Success -> usageRes.data
+        is PersistenceResult.Failure -> emptyList()
+      }
 
+    val todayDate = timeProvider.currentWallClock().date
+    val insights =
+      UsageInsightsCalculator.compute(
+        commitments = commitments,
+        recentUsages = recentUsages,
+        todayDate = todayDate,
+      )
+
+    val monitors = inputs.monitors
     val active = commitments.firstOrNull { it is Commitment.Active } as? Commitment.Active
     if (active != null) {
-      val now = timeProvider.currentWallClock()
-      return dailyUsageRepository.observeDailyUsage(active.id, now.date).let { usageFlow ->
+      return dailyUsageRepository.observeDailyUsage(active.id, todayDate).let { usageFlow ->
         combine(usageFlow, flowOf(Unit)) { usageResult, _ ->
           val currentNow = timeProvider.currentWallClock()
           val (usage, usageError) =
@@ -241,8 +263,8 @@ constructor(
             resolveCoverage(
               usage = usage,
               usageError = usageError,
-              healthSnapshot = healthSnapshot,
-              usageAccessSnapshot = usageAccessSnapshot,
+              healthSnapshot = monitors.health,
+              usageAccessSnapshot = monitors.usageAccess,
             )
           val status =
             DashboardStatus.Active(
@@ -259,9 +281,11 @@ constructor(
               status = status,
               history = history,
               isPinEnabled = isPinEnabled,
-              healthSnapshot = healthSnapshot,
-              usageAccessSnapshot = usageAccessSnapshot,
-              vpnFilterSnapshot = vpnFilterSnapshot,
+              healthSnapshot = monitors.health,
+              usageAccessSnapshot = monitors.usageAccess,
+              batteryOptimizationSnapshot = monitors.battery,
+              vpnFilterSnapshot = monitors.vpn,
+              insights = insights,
             )
           )
         }
@@ -296,9 +320,11 @@ constructor(
           status = primaryStatus,
           history = history,
           isPinEnabled = isPinEnabled,
-          healthSnapshot = healthSnapshot,
-          usageAccessSnapshot = usageAccessSnapshot,
-          vpnFilterSnapshot = vpnFilterSnapshot,
+          healthSnapshot = monitors.health,
+          usageAccessSnapshot = monitors.usageAccess,
+          batteryOptimizationSnapshot = monitors.battery,
+          vpnFilterSnapshot = monitors.vpn,
+          insights = insights,
         )
       )
     )
@@ -334,11 +360,17 @@ constructor(
     )
   }
 
+  private data class SystemMonitors(
+    val health: EnforcementHealthSnapshot,
+    val usageAccess: UsageAccessSnapshot,
+    val battery: BatteryOptimizationSnapshot,
+    val vpn: VpnFilterSnapshot,
+  )
+
   private data class DashboardInputs(
     val commitmentsResult: PersistenceResult<List<Commitment>>,
     val metadataResult: PersistenceResult<AccountabilityMetadata>,
-    val healthSnapshot: EnforcementHealthSnapshot,
-    val usageAccessSnapshot: UsageAccessSnapshot,
-    val vpnFilterSnapshot: VpnFilterSnapshot,
+    val recentUsageResult: PersistenceResult<List<DailyUsage>>,
+    val monitors: SystemMonitors,
   )
 }

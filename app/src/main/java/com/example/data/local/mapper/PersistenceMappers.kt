@@ -9,6 +9,7 @@ import com.example.data.local.entity.CommitmentRulesEntity
 import com.example.data.local.entity.CommitmentWithRelations
 import com.example.data.local.entity.DailyUsageWithEvents
 import com.example.data.local.entity.FilterDatasetMetadataEntity
+import com.example.data.local.entity.RemovalRequestEntity
 import com.example.data.local.entity.RestrictedAppEntity
 import com.example.data.local.entity.ScheduleWindowEntity
 import com.example.data.local.entity.SecurityEventEntity
@@ -32,6 +33,9 @@ import com.example.domain.model.DomainRuleType
 import com.example.domain.model.FilterDatasetMetadata
 import com.example.domain.model.PersistedActiveUsageSession
 import com.example.domain.model.RecordedUsageInterval
+import com.example.domain.model.RemovalRequest
+import com.example.domain.model.RemovalRequestId
+import com.example.domain.model.RemovalRequestStatus
 import com.example.domain.model.RestrictedApp
 import com.example.domain.model.RestrictionMode
 import com.example.domain.model.ScheduleWindow
@@ -449,6 +453,7 @@ internal object PersistenceMappers {
         incompleteReason = dailyUsage.incompleteReason,
         lastReconciledEpochMillis = dailyUsage.lastReconciledEpochMillis,
         intervals = recordedIntervals,
+        blockedAttempts = dailyUsage.blockedAttempts,
       )
     } catch (e: IllegalArgumentException) {
       throw CorruptLocalDataException("Invalid stored DailyUsage values", e)
@@ -601,6 +606,36 @@ internal object PersistenceMappers {
       previousVersionCode = previousVersionCode,
       previousContentSha256 = previousContentSha256,
     )
+
+  fun RemovalRequest.toEntity(): RemovalRequestEntity =
+    RemovalRequestEntity(
+      id = id.value,
+      commitmentId = commitmentId?.value,
+      status = status.name,
+      requestedAt = requestedAt.toEmbedded(),
+      unlocksAt = unlocksAt.toEmbedded(),
+      requestedMonotonicMillis = requestedMonotonicMillis,
+      bootSessionToken = bootSessionToken,
+      resolvedAt = resolvedAt?.toEmbedded(),
+      clockAnomalyObserved = clockAnomalyObserved,
+    )
+
+  fun RemovalRequestEntity.toDomain(): RemovalRequest =
+    try {
+      RemovalRequest(
+        id = RemovalRequestId(id),
+        commitmentId = commitmentId?.let { CommitmentId(it) },
+        status = parseEnumSafe<RemovalRequestStatus>(status, "RemovalRequestStatus"),
+        requestedAt = requestedAt.toDomain(),
+        unlocksAt = unlocksAt.toDomain(),
+        requestedMonotonicMillis = requestedMonotonicMillis,
+        bootSessionToken = bootSessionToken,
+        resolvedAt = resolvedAt?.toDomain(),
+        clockAnomalyObserved = clockAnomalyObserved,
+      )
+    } catch (e: IllegalArgumentException) {
+      throw CorruptLocalDataException("Invalid stored RemovalRequest values", e)
+    }
 
   private inline fun <reified E : Enum<E>> parseEnumSafe(raw: String, typeName: String): E =
     enumValues<E>().firstOrNull { it.name == raw }

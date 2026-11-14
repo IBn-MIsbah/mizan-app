@@ -12,6 +12,7 @@ import com.example.domain.model.RestrictedApp
 import com.example.domain.model.RestrictionMode
 import com.example.domain.repository.InstalledAppsResult
 import com.example.domain.repository.PersistenceResult
+import com.example.testing.FakeAccountabilityMetadataRepository
 import com.example.testing.FakeCommitmentRepository
 import com.example.testing.FakeDomainFilterRepository
 import com.example.testing.FakeIdGenerator
@@ -55,7 +56,14 @@ class CommitmentsViewModelTest {
   fun `invalid configuration blocks navigation to review`() = runTest {
     val repo = FakeCommitmentRepository()
     val viewModel =
-      CommitmentsViewModel(repo, installedRepo, FakeDomainFilterRepository(), timeProvider, idGenerator)
+      CommitmentsViewModel(
+        repo,
+        installedRepo,
+        FakeDomainFilterRepository(),
+        FakeAccountabilityMetadataRepository(),
+        timeProvider,
+        idGenerator,
+      )
     val job = launch { viewModel.uiState.collect {} }
     advanceUntilIdle()
 
@@ -74,7 +82,14 @@ class CommitmentsViewModelTest {
   fun `valid installed app configuration saves draft with stable package names`() = runTest {
     val repo = FakeCommitmentRepository()
     val viewModel =
-      CommitmentsViewModel(repo, installedRepo, FakeDomainFilterRepository(), timeProvider, idGenerator)
+      CommitmentsViewModel(
+        repo,
+        installedRepo,
+        FakeDomainFilterRepository(),
+        FakeAccountabilityMetadataRepository(),
+        timeProvider,
+        idGenerator,
+      )
     val job = launch { viewModel.uiState.collect {} }
     advanceUntilIdle()
 
@@ -110,7 +125,14 @@ class CommitmentsViewModelTest {
         .commitment
     val repo = FakeCommitmentRepository(listOf(active))
     val viewModel =
-      CommitmentsViewModel(repo, installedRepo, FakeDomainFilterRepository(), timeProvider, idGenerator)
+      CommitmentsViewModel(
+        repo,
+        installedRepo,
+        FakeDomainFilterRepository(),
+        FakeAccountabilityMetadataRepository(),
+        timeProvider,
+        idGenerator,
+      )
     val job = launch { viewModel.uiState.collect {} }
     advanceUntilIdle()
 

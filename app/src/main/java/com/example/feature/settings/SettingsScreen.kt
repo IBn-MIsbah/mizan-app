@@ -50,6 +50,7 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.R
 import com.example.core.designsystem.component.AccessibilityHealthCard
+import com.example.core.designsystem.component.BatteryOptimizationCard
 import com.example.core.designsystem.component.MizanScopeNoticeCard
 import com.example.core.designsystem.component.MizanSurfaceCard
 import com.example.core.designsystem.component.UsageAccessCard
@@ -66,9 +67,12 @@ fun SettingsRoute(
   val context = LocalContext.current
   var settingsLaunchError by remember { mutableStateOf<String?>(null) }
   var usageSettingsLaunchError by remember { mutableStateOf<String?>(null) }
+  var batterySettingsLaunchError by remember { mutableStateOf<String?>(null) }
+  var appInfoLaunchError by remember { mutableStateOf<String?>(null) }
   var vpnActionError by remember { mutableStateOf<String?>(null) }
   val launchErrorText = stringResource(R.string.health_open_settings_error)
   val usageLaunchErrorText = stringResource(R.string.usage_access_open_settings_error)
+  val batteryLaunchErrorText = stringResource(R.string.battery_open_settings_error)
 
   val vpnPermissionLauncher =
     rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -78,6 +82,8 @@ fun SettingsRoute(
   LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
     settingsLaunchError = null
     usageSettingsLaunchError = null
+    batterySettingsLaunchError = null
+    appInfoLaunchError = null
     vpnActionError = null
     viewModel.refreshEnforcementHealth()
   }
@@ -103,6 +109,16 @@ fun SettingsRoute(
       }
     },
     usageSettingsLaunchError = usageSettingsLaunchError,
+    onOpenBatterySettings = {
+      batterySettingsLaunchError = null
+      val started =
+        runCatching { context.startActivity(viewModel.createBatteryOptimizationSettingsIntent()) }
+          .isSuccess
+      if (!started) {
+        batterySettingsLaunchError = batteryLaunchErrorText
+      }
+    },
+    batterySettingsLaunchError = batterySettingsLaunchError,
     onVpnConsentChanged = viewModel::setWebsiteFilteringConsent,
     onEnableAndStartVpn = {
       vpnActionError = null
@@ -118,6 +134,21 @@ fun SettingsRoute(
     },
     onStopVpn = viewModel::requestStopVpnFiltering,
     vpnActionFeedback = vpnActionError,
+    onCurrentPinChange = viewModel::onCurrentPinInputChange,
+    onNewPinChange = viewModel::onNewPinInputChange,
+    onSavePin = viewModel::savePin,
+    onRemovePin = viewModel::removePin,
+    onRequestRemoval = viewModel::request24HourRemoval,
+    onCancelRemoval = viewModel::cancelRemovalRequest,
+    onExecuteRemoval = viewModel::executeRemovalRequest,
+    onOpenAppInfo = {
+      appInfoLaunchError = null
+      val started = runCatching { context.startActivity(viewModel.createAppDetailsSettingsIntent()) }.isSuccess
+      if (!started) {
+        appInfoLaunchError = "Unable to open Android App Info on this device."
+      }
+    },
+    appInfoLaunchError = appInfoLaunchError,
     modifier = modifier,
   )
 }
@@ -133,10 +164,21 @@ fun SettingsScreen(
   settingsLaunchError: String? = null,
   onOpenUsageAccessSettings: () -> Unit = {},
   usageSettingsLaunchError: String? = null,
+  onOpenBatterySettings: () -> Unit = {},
+  batterySettingsLaunchError: String? = null,
   onVpnConsentChanged: (Boolean) -> Unit = {},
   onEnableAndStartVpn: () -> Unit = {},
   onStopVpn: () -> Unit = {},
   vpnActionFeedback: String? = null,
+  onCurrentPinChange: (String) -> Unit = {},
+  onNewPinChange: (String) -> Unit = {},
+  onSavePin: () -> Unit = {},
+  onRemovePin: () -> Unit = {},
+  onRequestRemoval: () -> Unit = {},
+  onCancelRemoval: () -> Unit = {},
+  onExecuteRemoval: () -> Unit = {},
+  onOpenAppInfo: () -> Unit = {},
+  appInfoLaunchError: String? = null,
 ) {
   Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
     LazyColumn(
@@ -230,6 +272,27 @@ fun SettingsScreen(
                 }
               }
             }
+          }
+
+          item {
+            AccountabilityPinSettingsCard(
+              pinState = summary.pinState,
+              onCurrentPinChange = onCurrentPinChange,
+              onNewPinChange = onNewPinChange,
+              onSavePin = onSavePin,
+              onRemovePin = onRemovePin,
+            )
+          }
+
+          item {
+            VoluntaryRemovalRequestCard(
+              removalState = summary.removalState,
+              onRequestRemoval = onRequestRemoval,
+              onCancelRemoval = onCancelRemoval,
+              onExecuteRemoval = onExecuteRemoval,
+              onOpenAppInfo = onOpenAppInfo,
+              appInfoError = appInfoLaunchError,
+            )
           }
 
           item {
@@ -341,6 +404,15 @@ fun SettingsScreen(
               onOpenUsageAccessSettings = onOpenUsageAccessSettings,
               testTagPrefix = "settings_usage_access",
               settingsLaunchError = usageSettingsLaunchError,
+            )
+          }
+
+          item {
+            BatteryOptimizationCard(
+              batterySnapshot = summary.batteryOptimizationSnapshot,
+              onOpenBatterySettings = onOpenBatterySettings,
+              testTagPrefix = "settings_battery_optimization",
+              settingsLaunchError = batterySettingsLaunchError,
             )
           }
 

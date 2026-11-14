@@ -88,6 +88,34 @@ data class DomainDate(
     return DomainDate(currentYear, currentMonth, currentDay)
   }
 
+  fun minusDays(days: Int): DomainDate {
+    require(days >= 0) { "Only non-negative day offsets are supported, got $days" }
+    var currentYear = year
+    var currentMonth = month
+    var currentDay = dayOfMonth
+    var remaining = days
+    while (remaining > 0) {
+      val step = minOf(remaining, currentDay - 1)
+      if (step > 0) {
+        currentDay -= step
+        remaining -= step
+      } else {
+        remaining -= 1
+        if (currentMonth == 1) {
+          if (currentYear <= 1970) {
+            return DomainDate(1970, 1, 1)
+          }
+          currentYear -= 1
+          currentMonth = 12
+        } else {
+          currentMonth -= 1
+        }
+        currentDay = daysInMonth(currentYear, currentMonth)
+      }
+    }
+    return DomainDate(currentYear, currentMonth, currentDay)
+  }
+
   override fun compareTo(other: DomainDate): Int =
     compareValuesBy(this, other, DomainDate::year, DomainDate::month, DomainDate::dayOfMonth)
 

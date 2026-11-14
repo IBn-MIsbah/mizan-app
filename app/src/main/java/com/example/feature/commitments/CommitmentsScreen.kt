@@ -30,7 +30,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.R
-import com.example.core.designsystem.component.MizanScopeNoticeCard
 import com.example.core.designsystem.component.MizanStatusBadge
 import com.example.core.designsystem.component.MizanSurfaceCard
 import com.example.domain.model.RestrictionMode
@@ -220,9 +219,9 @@ fun CommitmentsScreen(
           }
 
           item {
-            MizanScopeNoticeCard(
-              title = stringResource(R.string.setup_future_features_title),
-              body = stringResource(R.string.setup_future_features_body),
+            AccountabilityPinSetupCard(
+              editor = editor,
+              onToggleRequirePin = viewModel::setRequirePinForEmergencyTermination,
             )
           }
 

@@ -6,6 +6,7 @@ import com.example.data.local.dao.AccountabilityMetadataDao
 import com.example.data.local.dao.CommitmentDao
 import com.example.data.local.dao.DailyUsageDao
 import com.example.data.local.dao.DomainFilterDao
+import com.example.data.local.dao.RemovalRequestDao
 import com.example.data.local.dao.SecurityEventDao
 import com.example.data.local.entity.AccountabilityMetadataEntity
 import com.example.data.local.entity.ActiveUsageSessionEntity
@@ -16,6 +17,7 @@ import com.example.data.local.entity.CommitmentRulesEntity
 import com.example.data.local.entity.DailyUsageEntity
 import com.example.data.local.entity.FilterDatasetDomainEntity
 import com.example.data.local.entity.FilterDatasetMetadataEntity
+import com.example.data.local.entity.RemovalRequestEntity
 import com.example.data.local.entity.RestrictedAppEntity
 import com.example.data.local.entity.ScheduleWindowEntity
 import com.example.data.local.entity.SecurityEventEntity
@@ -23,7 +25,7 @@ import com.example.data.local.entity.UsageEventEntity
 import com.example.data.local.entity.UsageIntegrityStateEntity
 
 /**
- * MIZAN local SQLite database (version 3).
+ * MIZAN local SQLite database (version 4).
  *
  * Schema management policy:
  * - `exportSchema = true` exports schema JSON files to `app/schemas/` under version control.
@@ -32,6 +34,8 @@ import com.example.data.local.entity.UsageIntegrityStateEntity
  *   `usage_integrity_state` via `MIGRATION_1_2`.
  * - Version 3 extends `commitment_rules` and adds `commitment_blocked_domains`, `filter_datasets`,
  *   and `filter_dataset_domains` via `MIGRATION_2_3`.
+ * - Version 4 extends `daily_usages` (`blocked_attempts`) and adds `removal_requests` via
+ *   `MIGRATION_3_4`.
  */
 @Database(
   entities = [
@@ -49,8 +53,9 @@ import com.example.data.local.entity.UsageIntegrityStateEntity
     UsageIntegrityStateEntity::class,
     SecurityEventEntity::class,
     AccountabilityMetadataEntity::class,
+    RemovalRequestEntity::class,
   ],
-  version = 3,
+  version = 4,
   exportSchema = true,
 )
 abstract class MizanDatabase : RoomDatabase() {
@@ -63,6 +68,8 @@ abstract class MizanDatabase : RoomDatabase() {
   abstract fun securityEventDao(): SecurityEventDao
 
   abstract fun accountabilityMetadataDao(): AccountabilityMetadataDao
+
+  abstract fun removalRequestDao(): RemovalRequestDao
 
   companion object {
     const val DATABASE_NAME = "mizan.db"

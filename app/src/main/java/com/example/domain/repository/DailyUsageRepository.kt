@@ -40,6 +40,17 @@ interface DailyUsageRepository {
     incompleteReason: String? = null,
   ): PersistenceResult<DailyUsage>
 
+  fun observeRecentDailyUsage(limit: Int = 30): Flow<PersistenceResult<List<DailyUsage>>>
+
+  fun observeDailyUsageForCommitment(
+    commitmentId: CommitmentId,
+  ): Flow<PersistenceResult<List<DailyUsage>>>
+
+  suspend fun recordBlockedAttempt(
+    commitmentId: CommitmentId,
+    date: DomainDate,
+  ): PersistenceResult<Unit>
+
   suspend fun saveActiveUsageSession(session: PersistedActiveUsageSession): PersistenceResult<Unit>
 
   suspend fun getActiveUsageSession(): PersistenceResult<PersistedActiveUsageSession?>

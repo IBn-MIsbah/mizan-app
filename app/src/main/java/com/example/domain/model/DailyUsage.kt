@@ -52,10 +52,14 @@ data class DailyUsage(
   val incompleteReason: String? = null,
   val lastReconciledEpochMillis: Long? = null,
   val intervals: List<RecordedUsageInterval> = emptyList(),
+  val blockedAttempts: Int = 0,
 ) {
   init {
     require(consumed.isFinite() && !consumed.isNegative()) {
       "DailyUsage consumed duration must be finite and non-negative, got $consumed"
+    }
+    require(blockedAttempts >= 0) {
+      "DailyUsage blockedAttempts must be non-negative, got $blockedAttempts"
     }
   }
 

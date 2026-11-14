@@ -150,7 +150,11 @@ class MizanMigration1To2Test {
       // 2. Open with Room at version 2 + explicit MIGRATION_1_2 (triggers Room onValidateSchema)
       val roomDb =
         Room.databaseBuilder(context, MizanDatabase::class.java, dbName)
-          .addMigrations(DatabaseModule.MIGRATION_1_2, DatabaseModule.MIGRATION_2_3)
+          .addMigrations(
+            DatabaseModule.MIGRATION_1_2,
+            DatabaseModule.MIGRATION_2_3,
+            DatabaseModule.MIGRATION_3_4,
+          )
           .allowMainThreadQueries()
           .build()
 

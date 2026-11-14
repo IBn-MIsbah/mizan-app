@@ -871,3 +871,57 @@ internal fun WebsiteFilteringSetupCard(
   }
 }
 
+@Composable
+internal fun AccountabilityPinSetupCard(
+  editor: DraftEditorState,
+  onToggleRequirePin: (Boolean) -> Unit,
+) {
+  MizanSurfaceCard(modifier = Modifier.testTag("setup_pin_card")) {
+    Text(
+      text = stringResource(R.string.setup_pin_title),
+      style = MaterialTheme.typography.titleMedium,
+      color = MaterialTheme.colorScheme.onSurface,
+    )
+    Row(
+      modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {},
+      verticalAlignment = Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+      Text(
+        text = stringResource(R.string.setup_pin_toggle_label),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurface,
+        modifier = Modifier.weight(1f).padding(end = 12.dp),
+      )
+      androidx.compose.material3.Switch(
+        checked = editor.requirePinForEmergencyTermination,
+        onCheckedChange = onToggleRequirePin,
+        modifier =
+          Modifier.minimumInteractiveComponentSize().testTag("setup_pin_toggle_switch"),
+      )
+    }
+    Text(
+      text =
+        if (editor.isPinConfigured) {
+          stringResource(R.string.setup_pin_configured_note)
+        } else {
+          stringResource(R.string.setup_pin_missing_note)
+        },
+      style = MaterialTheme.typography.bodySmall,
+      color =
+        if (editor.requirePinForEmergencyTermination && !editor.isPinConfigured) {
+          MaterialTheme.colorScheme.error
+        } else {
+          MaterialTheme.colorScheme.onSurfaceVariant
+        },
+      modifier = Modifier.testTag("setup_pin_status_note"),
+    )
+    Text(
+      text = stringResource(R.string.setup_pin_disclosure_note),
+      style = MaterialTheme.typography.bodySmall,
+      color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+  }
+}
+
+

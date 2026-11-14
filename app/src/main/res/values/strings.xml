@@ -13,8 +13,8 @@
     <string name="back_label">Back</string>
     <string name="close_label">Done</string>
     <string name="error_generic">Unable to load local commitment data.</string>
-    <string name="status_not_active_notice_title">Milestone 6 Scope Notice</string>
-    <string name="status_not_active_notice_body">Foreground app blocking, local foreground usage measurement, shared Hybrid allowance accounting, optional UsageStats reconciliation, and optional on-device DNS-only website filtering (VPN) are active on-device. Remote category feed updates remain disabled until a signed feed and pinned public key are configured; Accountability PIN cryptography is deferred to Milestone 7.</string>
+    <string name="status_not_active_notice_title">On-Device Hardening &amp; Scope Notice</string>
+    <string name="status_not_active_notice_body">App blocking, local foreground usage measurement, shared Hybrid allowance accounting, optional UsageStats reconciliation, optional on-device DNS-only website filtering, Android Keystore Accountability PIN protection, and optional 24-hour voluntary removal cooling-off operate offline on-device. Remote category feed updates remain disabled until a signed feed and pinned public key are configured; YouTube Shorts-only detection remains post-MVP.</string>
 
     <!-- Accessibility Service & Enforcement Health -->
     <string name="accessibility_service_label">Mizan App Restriction Monitor</string>
@@ -104,6 +104,7 @@
     <string name="cd_permissions_icon">Android accessibility permissions indicator</string>
     <string name="cd_architecture_icon">App and build information indicator</string>
     <string name="cd_app_icon_fallback">Application icon</string>
+    <string name="cd_insights_icon">Local balance insights indicator</string>
 
     <!-- Onboarding -->
     <string name="onboarding_title">Intentional Technology Use</string>
@@ -183,8 +184,11 @@
     <string name="setup_website_categories_title">Optional Domain Categories (Local Dataset Status)</string>
     <string name="setup_website_category_social">Social Media Domains</string>
     <string name="setup_website_category_adult">Adult Content Domains</string>
-    <string name="setup_future_features_title">Accountability PIN Notice</string>
-    <string name="setup_future_features_body">Accountability PIN Keystore hashing enforcement will be completed in Milestone 7.</string>
+    <string name="setup_pin_title">7. Accountability PIN Protection</string>
+    <string name="setup_pin_toggle_label">Require Accountability PIN for emergency termination</string>
+    <string name="setup_pin_configured_note">A local salted PBKDF2 PIN (protected by Android Keystore) is configured. Enabling this adds intentional friction before ending an active commitment early.</string>
+    <string name="setup_pin_missing_note">No Accountability PIN is configured yet. Configure one in Settings before enabling PIN protection on this commitment.</string>
+    <string name="setup_pin_disclosure_note">Local PIN protection is a voluntary accountability deterrent; it cannot prevent OS uninstall, force-stop, safe mode, ADB, or factory reset.</string>
     <string name="setup_save_draft_button">Save Draft</string>
     <string name="setup_continue_review_button">Continue to Review</string>
     <string name="setup_draft_saved_feedback">Draft saved locally.</string>
@@ -215,8 +219,12 @@
     <string name="emergency_subtitle">End an active commitment immediately before its 7-day period completes.</string>
     <string name="emergency_consequence_title">What Emergency Termination Means</string>
     <string name="emergency_consequence_body">Your commitment will end immediately and be recorded locally as Emergency Terminated — separate from a normal 7-day completion. Rules will no longer apply.</string>
-    <string name="emergency_pin_blocked_title">PIN Authorization Required (Unavailable)</string>
-    <string name="emergency_pin_blocked_body">Accountability PIN protection is enabled for this commitment or accountability state, and PIN verification is not yet implemented. Termination is blocked rather than bypassed.</string>
+    <string name="emergency_pin_blocked_title">Accountability PIN Verification Unavailable</string>
+    <string name="emergency_pin_blocked_body">Accountability PIN protection is required for this commitment, but the local Keystore-backed PIN credential could not be verified. Emergency termination remains locked until either the PIN credential recovers or a 24-hour voluntary removal request in Settings finishes.</string>
+    <string name="emergency_pin_card_title">Accountability PIN Required</string>
+    <string name="emergency_pin_card_desc">Enter your 4–8 digit Accountability PIN to authorize early emergency termination.</string>
+    <string name="emergency_pin_input_label">Accountability PIN (4–8 digits)</string>
+    <string name="emergency_pin_lockout_format">Too many incorrect attempts. Try again in %1$d seconds.</string>
     <string name="emergency_confirm_checkbox_label">I understand this will immediately end my active commitment early and record an emergency termination.</string>
     <string name="emergency_confirm_button">Confirm Emergency Termination</string>
 
@@ -227,15 +235,57 @@
     <string name="settings_theme_system">System</string>
     <string name="settings_theme_light">Light</string>
     <string name="settings_theme_dark">Dark</string>
+    <string name="settings_pin_title">Accountability PIN Protection</string>
+    <string name="settings_pin_status_enabled">PIN Configured (Keystore + Salted PBKDF2)</string>
+    <string name="settings_pin_status_disabled">No PIN Configured</string>
+    <string name="settings_pin_status_unavailable">PIN Configured (Keystore Credential Unavailable)</string>
+    <string name="settings_pin_disclosure">A trusted partner or your own future self can configure a local 4–8 digit PIN. MIZAN stores only a salted PBKDF2-HMAC-SHA256 hash sealed with Android Keystore (AES-256-GCM) in no-backup storage. This is a voluntary deterrent, not tamper-proof device administration.</string>
+    <string name="settings_pin_current_label">Current PIN</string>
+    <string name="settings_pin_new_label">New PIN (4–8 digits)</string>
+    <string name="settings_pin_set_button">Save Accountability PIN</string>
+    <string name="settings_pin_change_button">Update PIN</string>
+    <string name="settings_pin_remove_button">Remove PIN</string>
+    <string name="settings_removal_title">Voluntary 24-Hour Removal Request</string>
+    <string name="settings_removal_desc">Start a calm 24-hour cooling-off timer before lifting commitment restrictions or clearing an Accountability PIN locally. You can cancel anytime, or complete deactivation once 24 hours have elapsed.</string>
+    <string name="settings_removal_honest_note">Honest limitation: This cooling-off period is a voluntary deterrent. Android never allows an ordinary app to block OS uninstall, force-stop, safe mode, ADB, or factory reset.</string>
+    <string name="settings_removal_request_button">Request 24-Hour Removal</string>
+    <string name="settings_removal_cancel_button">Cancel Removal Request</string>
+    <string name="settings_removal_execute_button">Complete Local Deactivation</string>
+    <string name="settings_removal_open_app_info_button">Open Android App Info</string>
     <string name="settings_filter_pref_title">Filter Datasets &amp; Update Policy</string>
     <string name="settings_filter_wifi_only_label">Update local filter datasets on Wi-Fi only</string>
     <string name="settings_filter_wifi_only_note">Remote category dataset updates remain disabled because no signed external feed and pinned public verification key are configured. Custom blocked and allowlisted domains work 100% offline.</string>
     <string name="settings_privacy_title">Local-Data Privacy Guarantee</string>
-    <string name="settings_privacy_body">MIZAN stores all commitments, rules, and preferences exclusively in local Room and DataStore storage. MIZAN never stores DNS query history or browsing logs, and includes zero accounts, cloud sync, analytics, ads, or remote servers.</string>
+    <string name="settings_privacy_body">MIZAN stores all commitments, rules, and preferences exclusively in local Room and DataStore storage (excluded from cloud backup). MIZAN never stores DNS query history or browsing logs, and includes zero accounts, cloud sync, analytics, ads, or remote servers.</string>
     <string name="settings_onboarding_revisit_button">Review Onboarding &amp; Permission Guide</string>
     <string name="settings_permissions_title">Android Permissions &amp; Health</string>
     <string name="settings_permissions_body">App restriction and live foreground timing require manual Accessibility Service opt-in. Optional Usage Access enables local interval reconciliation, and optional local VPN authorization enables on-device DNS domain filtering.</string>
     <string name="settings_build_title">Application &amp; Scope Info</string>
     <string name="settings_item_package">Application ID</string>
     <string name="settings_item_version">Version</string>
+
+    <!-- Battery Optimization Health -->
+    <string name="battery_card_title">Battery Optimization Health</string>
+    <string name="battery_badge_unrestricted">Unrestricted (Recommended)</string>
+    <string name="battery_badge_optimized">Battery Optimized</string>
+    <string name="battery_badge_unavailable">Status Unavailable</string>
+    <string name="battery_desc_unrestricted">MIZAN is exempt from aggressive system battery throttling, helping Accessibility and local VPN enforcement remain stable across idle periods.</string>
+    <string name="battery_desc_optimized">Android battery optimization is active for MIZAN. Some devices may pause Accessibility or local VPN monitoring in the background.</string>
+    <string name="battery_desc_unavailable">MIZAN could not read Android battery optimization state on this device.</string>
+    <string name="battery_limitation_note">Play-compliant settings link: MIZAN does not request background exemptions silently. Even unrestricted apps remain subject to vendor task killers or OS reboot behavior.</string>
+    <string name="battery_open_settings_button">Open Battery Optimization Settings</string>
+    <string name="battery_open_settings_error">Unable to open Android Battery Optimization Settings on this device.</string>
+
+    <!-- Usage & Balance Insights -->
+    <string name="insights_card_title">Local Discipline Insights</string>
+    <string name="insights_card_subtitle">Factual on-device trends without shame, scores, or cloud tracking.</string>
+    <string name="insights_blocked_today_label">Blocked Today</string>
+    <string name="insights_blocked_active_label">Blocked This Commitment</string>
+    <string name="insights_blocked_total_label">Total Blocked Recorded</string>
+    <string name="insights_weekly_total_label">7-Day Usage</string>
+    <string name="insights_streak_label">Within Allowance Streak</string>
+    <string name="insights_weekly_trend_title">7-Day Foreground Trend</string>
+    <string name="insights_weekly_no_usage">No restricted foreground usage recorded across the last 7 days.</string>
+    <string name="insights_baseline_title">Personal Baseline Comparison</string>
+    <string name="insights_baseline_insufficient_format">Insufficient local history for baseline comparison (%1$d of %2$d measured days recorded).</string>
 </resources>

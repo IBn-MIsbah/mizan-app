@@ -11,9 +11,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.outlined.Pin
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
@@ -21,6 +23,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
@@ -31,6 +34,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -61,6 +66,7 @@ fun EmergencyTerminationRoute(
     onConfirmChanged = viewModel::setWarningConfirmed,
     onConfirmTermination = viewModel::confirmTermination,
     onNavigateBack = onNavigateBack,
+    onPinChanged = viewModel::setPinInput,
     modifier = modifier,
   )
 }
@@ -72,6 +78,7 @@ fun EmergencyTerminationScreen(
   onConfirmTermination: () -> Unit,
   onNavigateBack: () -> Unit,
   modifier: Modifier = Modifier,
+  onPinChanged: (String) -> Unit = {},
 ) {
   Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
     LazyColumn(
@@ -192,9 +199,61 @@ fun EmergencyTerminationScreen(
             }
           }
 
+          if (uiState.requiresPin) {
+            item {
+              MizanSurfaceCard(modifier = Modifier.testTag("emergency_pin_input_card")) {
+                Row(
+                  verticalAlignment = Alignment.CenterVertically,
+                  horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                  Icon(
+                    imageVector = Icons.Outlined.Pin,
+                    contentDescription = stringResource(R.string.cd_privacy_icon),
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp),
+                  )
+                  Text(
+                    text = stringResource(R.string.emergency_pin_card_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                  )
+                }
+                Text(
+                  text = stringResource(R.string.emergency_pin_card_desc),
+                  style = MaterialTheme.typography.bodySmall,
+                  color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                OutlinedTextField(
+                  value = uiState.pinInput,
+                  onValueChange = onPinChanged,
+                  label = { Text(stringResource(R.string.emergency_pin_input_label)) },
+                  singleLine = true,
+                  visualTransformation = PasswordVisualTransformation(),
+                  keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                  modifier = Modifier.fillMaxWidth().testTag("emergency_pin_input"),
+                )
+                if (uiState.lockoutRemainingSeconds > 0L) {
+                  Text(
+                    text =
+                      stringResource(
+                        R.string.emergency_pin_lockout_format,
+                        uiState.lockoutRemainingSeconds,
+                      ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.testTag("emergency_pin_lockout_text"),
+                  )
+                }
+              }
+            }
+          }
+
           if (uiState.terminationError != null) {
             item {
-              MizanSurfaceCard(containerColor = MaterialTheme.colorScheme.errorContainer) {
+              MizanSurfaceCard(
+                modifier = Modifier.testTag("emergency_error_banner"),
+                containerColor = MaterialTheme.colorScheme.errorContainer,
+              ) {
                 Text(
                   text = uiState.terminationError,
                   style = MaterialTheme.typography.bodyMedium,
@@ -225,9 +284,10 @@ fun EmergencyTerminationScreen(
                 )
               }
 
+              val pinRequirementSatisfied = !uiState.requiresPin || uiState.pinInput.isNotBlank()
               Button(
                 onClick = onConfirmTermination,
-                enabled = uiState.confirmedWarning && !uiState.isSubmitting,
+                enabled = uiState.confirmedWarning && pinRequirementSatisfied && !uiState.isSubmitting,
                 colors =
                   ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.error,

@@ -17,6 +17,7 @@ import com.example.domain.model.CommitmentId
 import com.example.domain.model.SecurityEvent
 import com.example.domain.model.SecurityEventId
 import com.example.domain.model.SecurityEventType
+import com.example.domain.pin.AccountabilityPinRepository
 import com.example.domain.repository.CommitmentRepository
 import com.example.domain.repository.PersistenceResult
 import com.example.domain.repository.SecurityEventRepository
@@ -59,6 +60,7 @@ class CommitmentReviewViewModel
 @Inject
 constructor(
   private val commitmentRepository: CommitmentRepository,
+  private val accountabilityPinRepository: AccountabilityPinRepository,
   private val securityEventRepository: SecurityEventRepository,
   private val userPreferencesRepository: UserPreferencesRepository,
   private val vpnFilterMonitor: VpnFilterMonitor,
@@ -165,6 +167,18 @@ constructor(
         val active = activationResult.commitment
         _uiState.value = current.copy(isSubmitting = true, activationError = null)
         viewModelScope.launch {
+          if (active.rules.requirePinForEmergencyTermination) {
+            val hasPinCredential = runCatching { accountabilityPinRepository.isCredentialAvailable() }.getOrDefault(false)
+            if (!hasPinCredential) {
+              _uiState.value =
+                current.copy(
+                  isSubmitting = false,
+                  activationError =
+                    "Accountability PIN protection is enabled, but no valid local PIN credential is available. Configure a PIN in Settings or turn off PIN protection in Setup.",
+                )
+              return@launch
+            }
+          }
           when (val saveResult = commitmentRepository.saveCommitment(active)) {
             is PersistenceResult.Failure -> {
               _uiState.value =

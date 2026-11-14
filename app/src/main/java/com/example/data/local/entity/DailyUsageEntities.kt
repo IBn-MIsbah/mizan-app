@@ -34,6 +34,7 @@ data class DailyUsageEntity(
   val coverageStatus: String = "MEASURED",
   @ColumnInfo(name = "incomplete_reason") val incompleteReason: String? = null,
   @ColumnInfo(name = "last_reconciled_epoch_millis") val lastReconciledEpochMillis: Long? = null,
+  @ColumnInfo(name = "blocked_attempts", defaultValue = "0") val blockedAttempts: Int = 0,
 )
 
 /**

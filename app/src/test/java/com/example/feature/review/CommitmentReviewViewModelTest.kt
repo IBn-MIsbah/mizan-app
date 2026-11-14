@@ -12,6 +12,7 @@ import com.example.domain.model.RestrictionMode
 import com.example.domain.model.SecurityEventType
 import com.example.domain.repository.PersistenceError
 import com.example.domain.repository.PersistenceResult
+import com.example.testing.FakeAccountabilityPinRepository
 import com.example.testing.FakeCommitmentRepository
 import com.example.testing.FakeIdGenerator
 import com.example.testing.FakeSecurityEventRepository
@@ -48,6 +49,7 @@ class CommitmentReviewViewModelTest {
     val viewModel =
       CommitmentReviewViewModel(
         commitmentRepository = repo,
+        accountabilityPinRepository = FakeAccountabilityPinRepository(),
         securityEventRepository = securityRepo,
         userPreferencesRepository = FakeUserPreferencesRepository(),
         vpnFilterMonitor = FakeVpnFilterMonitor(),
@@ -91,6 +93,7 @@ class CommitmentReviewViewModelTest {
     val viewModel =
       CommitmentReviewViewModel(
         commitmentRepository = repo,
+        accountabilityPinRepository = FakeAccountabilityPinRepository(),
         securityEventRepository = securityRepo,
         userPreferencesRepository = FakeUserPreferencesRepository(),
         vpnFilterMonitor = FakeVpnFilterMonitor(),

@@ -14,6 +14,7 @@ import com.example.data.local.dao.AccountabilityMetadataDao
 import com.example.data.local.dao.CommitmentDao
 import com.example.data.local.dao.DailyUsageDao
 import com.example.data.local.dao.DomainFilterDao
+import com.example.data.local.dao.RemovalRequestDao
 import com.example.data.local.dao.SecurityEventDao
 import com.example.data.local.db.MizanDatabase
 import dagger.Module
@@ -162,6 +163,53 @@ object DatabaseModule {
       }
     }
 
+  val MIGRATION_3_4: Migration =
+    object : Migration(3, 4) {
+      override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+          "ALTER TABLE `daily_usages` ADD COLUMN `blocked_attempts` INTEGER NOT NULL DEFAULT 0"
+        )
+        db.execSQL(
+          """
+          CREATE TABLE IF NOT EXISTS `removal_requests` (
+            `id` TEXT NOT NULL,
+            `commitment_id` TEXT,
+            `status` TEXT NOT NULL,
+            `requested_monotonic_millis` INTEGER NOT NULL,
+            `boot_session_token` TEXT NOT NULL,
+            `clock_anomaly_observed` INTEGER NOT NULL DEFAULT 0,
+            `requested_at_dateIso` TEXT NOT NULL,
+            `requested_at_timeIso` TEXT NOT NULL,
+            `requested_at_epochMillis` INTEGER NOT NULL,
+            `requested_at_utcOffsetMinutes` INTEGER NOT NULL,
+            `requested_at_zoneId` TEXT NOT NULL,
+            `unlocks_at_dateIso` TEXT NOT NULL,
+            `unlocks_at_timeIso` TEXT NOT NULL,
+            `unlocks_at_epochMillis` INTEGER NOT NULL,
+            `unlocks_at_utcOffsetMinutes` INTEGER NOT NULL,
+            `unlocks_at_zoneId` TEXT NOT NULL,
+            `resolved_at_dateIso` TEXT,
+            `resolved_at_timeIso` TEXT,
+            `resolved_at_epochMillis` INTEGER,
+            `resolved_at_utcOffsetMinutes` INTEGER,
+            `resolved_at_zoneId` TEXT,
+            PRIMARY KEY(`id`),
+            FOREIGN KEY(`commitment_id`) REFERENCES `commitments`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL
+          )
+          """.trimIndent()
+        )
+        db.execSQL(
+          "CREATE INDEX IF NOT EXISTS `index_removal_requests_commitment_id` ON `removal_requests` (`commitment_id`)"
+        )
+        db.execSQL(
+          "CREATE INDEX IF NOT EXISTS `index_removal_requests_requested_at_epochMillis` ON `removal_requests` (`requested_at_epochMillis`)"
+        )
+        db.execSQL(
+          "CREATE INDEX IF NOT EXISTS `index_removal_requests_status` ON `removal_requests` (`status`)"
+        )
+      }
+    }
+
   /**
    * Provides the local Room database without destructive migrations so user data is never
    * silently dropped on upgrades. Explicit [androidx.room.migration.Migration] instances must
@@ -175,7 +223,7 @@ object DatabaseModule {
         MizanDatabase::class.java,
         MizanDatabase.DATABASE_NAME,
       )
-      .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+      .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
       .build()
 
   @Provides
@@ -194,6 +242,10 @@ object DatabaseModule {
   @Provides
   fun provideAccountabilityMetadataDao(database: MizanDatabase): AccountabilityMetadataDao =
     database.accountabilityMetadataDao()
+
+  @Provides
+  fun provideRemovalRequestDao(database: MizanDatabase): RemovalRequestDao =
+    database.removalRequestDao()
 
   @Provides
   @Singleton

@@ -52,6 +52,8 @@ import com.example.platform.vpn.AndroidVpnFilterMonitor
 import com.example.platform.vpn.DomainFilterVpnService
 import com.example.platform.vpn.VpnFilterSnapshot
 import com.example.platform.vpn.VpnServiceLifecycleStatus
+import com.example.testing.FakeAccountabilityMetadataRepository
+import com.example.testing.FakeAccountabilityPinRepository
 import com.example.testing.FakeBlockingUiLauncher
 import com.example.testing.FakeCommitmentRepository
 import com.example.testing.FakeDailyUsageRepository
@@ -236,6 +238,7 @@ class VpnFilterAndUiRobolectricTest {
       val reviewVm1 =
         CommitmentReviewViewModel(
           commitmentRepository = repo1,
+          accountabilityPinRepository = FakeAccountabilityPinRepository(),
           securityEventRepository = FakeSecurityEventRepository(),
           userPreferencesRepository = FakeUserPreferencesRepository(AppPreferences(websiteFilteringConsented = false)),
           vpnFilterMonitor = vpnMonitor1,
@@ -255,6 +258,7 @@ class VpnFilterAndUiRobolectricTest {
       val reviewVm2 =
         CommitmentReviewViewModel(
           commitmentRepository = repo2,
+          accountabilityPinRepository = FakeAccountabilityPinRepository(),
           securityEventRepository = FakeSecurityEventRepository(),
           userPreferencesRepository = FakeUserPreferencesRepository(AppPreferences(websiteFilteringConsented = true)),
           vpnFilterMonitor = vpnMonitor2,
@@ -290,7 +294,8 @@ class VpnFilterAndUiRobolectricTest {
       val emergencyVm =
         EmergencyTerminationViewModel(
           commitmentRepository = repo3,
-          accountabilityMetadataRepository = com.example.testing.FakeAccountabilityMetadataRepository(),
+          accountabilityMetadataRepository = FakeAccountabilityMetadataRepository(),
+          accountabilityPinRepository = FakeAccountabilityPinRepository(),
           securityEventRepository = FakeSecurityEventRepository(),
           vpnFilterMonitor = vpnMonitor3,
           timeProvider = timeProvider,
@@ -425,6 +430,7 @@ class VpnFilterAndUiRobolectricTest {
         commitmentRepository = repo,
         installedAppRepository = FakeInstalledAppRepository(),
         domainFilterRepository = FakeDomainFilterRepository(),
+        accountabilityMetadataRepository = FakeAccountabilityMetadataRepository(),
         timeProvider = timeProvider,
         idGenerator = FakeIdGenerator(),
       )

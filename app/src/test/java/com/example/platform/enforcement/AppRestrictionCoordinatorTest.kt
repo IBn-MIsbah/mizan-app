@@ -153,31 +153,52 @@ class AppRestrictionCoordinatorTest {
       val harness = createCoordinator(listOf(activeCommitment(mode = RestrictionMode.STRICT)))
       harness.coordinator.onServiceConnected()
 
-      // First entry -> launches blocking UI
+      // First entry -> launches blocking UI and increments today's blocked attempts counter
       val d1 = harness.coordinator.onForegroundPackageObserved(restrictedPkg)
       assertTrue(d1!!.isBlocked)
       assertEquals(1, harness.blockingUiLauncher.requests.size)
       assertEquals(restrictedPkg, harness.blockingUiLauncher.requests.single().packageName)
+      assertEquals(
+        1,
+        (harness.usageRepository.getDailyUsage(CommitmentId("c-1"), baseTime.date)
+            as com.example.domain.repository.PersistenceResult.Success)
+          .data
+          .blockedAttempts,
+      )
 
       // MIZAN's own BlockingActivity foregrounded -> ignored, does not loop or clear burst state
       assertNull(harness.coordinator.onForegroundPackageObserved(ownPackage))
       assertEquals(1, harness.blockingUiLauncher.requests.size)
 
-      // Duplicate accessibility burst within debounce window -> debounced
+      // Duplicate accessibility burst within debounce window -> debounced, does not double-count blockedAttempts
       harness.timeProvider.monotonic = MonotonicTimestamp(1_200L)
       harness.coordinator.onForegroundPackageObserved(restrictedPkg)
       assertEquals(1, harness.blockingUiLauncher.requests.size)
+      assertEquals(
+        1,
+        (harness.usageRepository.getDailyUsage(CommitmentId("c-1"), baseTime.date)
+            as com.example.domain.repository.PersistenceResult.Success)
+          .data
+          .blockedAttempts,
+      )
 
       // User leaves to home launcher / neutral allowed app -> clears block state
       val homeDecision = harness.coordinator.onForegroundPackageObserved(neutralPkg)
       assertTrue(homeDecision!!.isAllowed)
       assertEquals(1, harness.blockingUiLauncher.requests.size)
 
-      // User taps restricted app again even immediately -> blocked again cleanly
+      // User taps restricted app again even immediately -> blocked again cleanly and increments blockedAttempts
       harness.timeProvider.monotonic = MonotonicTimestamp(1_250L)
       val reentryDecision = harness.coordinator.onForegroundPackageObserved(restrictedPkg)
       assertTrue(reentryDecision!!.isBlocked)
       assertEquals(2, harness.blockingUiLauncher.requests.size)
+      assertEquals(
+        2,
+        (harness.usageRepository.getDailyUsage(CommitmentId("c-1"), baseTime.date)
+            as com.example.domain.repository.PersistenceResult.Success)
+          .data
+          .blockedAttempts,
+      )
     }
 
   @Test

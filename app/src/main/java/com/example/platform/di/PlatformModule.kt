@@ -6,8 +6,10 @@ import com.example.platform.apps.PackageManagerInstalledAppRepository
 import com.example.platform.enforcement.AndroidBlockingUiLauncher
 import com.example.platform.enforcement.AppPackageName
 import com.example.platform.enforcement.BlockingUiLauncher
+import com.example.platform.health.AndroidBatteryOptimizationMonitor
 import com.example.platform.health.AndroidEnforcementHealthMonitor
 import com.example.platform.health.AndroidUsageAccessMonitor
+import com.example.platform.health.BatteryOptimizationMonitor
 import com.example.platform.health.EnforcementHealthMonitor
 import com.example.platform.health.UsageAccessMonitor
 import com.example.platform.usage.AndroidBootSessionProvider
@@ -41,6 +43,12 @@ abstract class PlatformBindingsModule {
   abstract fun bindUsageAccessMonitor(
     impl: AndroidUsageAccessMonitor
   ): UsageAccessMonitor
+
+  @Binds
+  @Singleton
+  abstract fun bindBatteryOptimizationMonitor(
+    impl: AndroidBatteryOptimizationMonitor
+  ): BatteryOptimizationMonitor
 
   @Binds
   @Singleton

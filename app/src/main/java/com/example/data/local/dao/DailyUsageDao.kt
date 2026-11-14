@@ -33,8 +33,27 @@ interface DailyUsageDao {
     localDate: String,
   ): DailyUsageWithEvents?
 
+  @Transaction
+  @Query("SELECT * FROM daily_usages ORDER BY local_date DESC LIMIT :limit")
+  fun observeRecentDailyUsage(limit: Int): Flow<List<DailyUsageWithEvents>>
+
+  @Transaction
+  @Query(
+    "SELECT * FROM daily_usages WHERE commitment_id = :commitmentId ORDER BY local_date ASC"
+  )
+  fun observeDailyUsageForCommitment(commitmentId: String): Flow<List<DailyUsageWithEvents>>
+
   @Insert(onConflict = OnConflictStrategy.ABORT)
   suspend fun insertDailyUsage(entity: DailyUsageEntity): Long
+
+  @Query(
+    """
+    UPDATE daily_usages
+    SET blocked_attempts = blocked_attempts + 1
+    WHERE id = :dailyUsageId
+    """
+  )
+  suspend fun incrementBlockedAttempts(dailyUsageId: Long)
 
   @Query(
     """

@@ -221,6 +221,54 @@ constructor(
       }
     }
 
+  override fun observeRecentDailyUsage(limit: Int): Flow<PersistenceResult<List<DailyUsage>>> =
+    dailyUsageDao
+      .observeRecentDailyUsage(limit.coerceIn(1, 365))
+      .map<_, PersistenceResult<List<DailyUsage>>> { list ->
+        PersistenceResult.Success(list.map { it.toDomain() })
+      }
+      .catch { throwable -> emit(PersistenceResult.Failure(mapThrowable(throwable))) }
+      .flowOn(dispatcherProvider.io)
+
+  override fun observeDailyUsageForCommitment(
+    commitmentId: CommitmentId,
+  ): Flow<PersistenceResult<List<DailyUsage>>> =
+    dailyUsageDao
+      .observeDailyUsageForCommitment(commitmentId.value)
+      .map<_, PersistenceResult<List<DailyUsage>>> { list ->
+        PersistenceResult.Success(list.map { it.toDomain() })
+      }
+      .catch { throwable -> emit(PersistenceResult.Failure(mapThrowable(throwable))) }
+      .flowOn(dispatcherProvider.io)
+
+  override suspend fun recordBlockedAttempt(
+    commitmentId: CommitmentId,
+    date: DomainDate,
+  ): PersistenceResult<Unit> =
+    withContext(dispatcherProvider.io) {
+      try {
+        database.withTransaction {
+          val dateIso = date.toIsoString()
+          val existingRelation = dailyUsageDao.getDailyUsageWithEvents(commitmentId.value, dateIso)
+          val dailyUsageId =
+            existingRelation?.dailyUsage?.id
+              ?: dailyUsageDao.insertDailyUsage(
+                DailyUsageEntity(
+                  commitmentId = commitmentId.value,
+                  localDate = dateIso,
+                  consumedMillis = 0L,
+                  coverageStatus = UsageCoverageStatus.MEASURED.name,
+                  blockedAttempts = 0,
+                )
+              )
+          dailyUsageDao.incrementBlockedAttempts(dailyUsageId)
+        }
+        PersistenceResult.Success(Unit)
+      } catch (t: Throwable) {
+        PersistenceResult.Failure(mapThrowable(t))
+      }
+    }
+
   override suspend fun saveActiveUsageSession(
     session: PersistedActiveUsageSession,
   ): PersistenceResult<Unit> =

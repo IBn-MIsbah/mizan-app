@@ -16,6 +16,8 @@ import com.example.domain.model.CommitmentId
 import com.example.domain.model.SecurityEvent
 import com.example.domain.model.SecurityEventId
 import com.example.domain.model.SecurityEventType
+import com.example.domain.pin.AccountabilityPinRepository
+import com.example.domain.pin.PinVerificationStatus
 import com.example.domain.repository.AccountabilityMetadataRepository
 import com.example.domain.repository.CommitmentRepository
 import com.example.domain.repository.PersistenceResult
@@ -24,6 +26,7 @@ import com.example.domain.time.TimeProvider
 import com.example.platform.vpn.VpnFilterMonitor
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlin.math.ceil
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -42,6 +45,9 @@ sealed interface EmergencyTerminationUiState {
 
   data class Ready(
     val active: Commitment.Active,
+    val requiresPin: Boolean = false,
+    val pinInput: String = "",
+    val lockoutRemainingSeconds: Long = 0L,
     val confirmedWarning: Boolean = false,
     val isSubmitting: Boolean = false,
     val terminationError: String? = null,
@@ -58,6 +64,7 @@ class EmergencyTerminationViewModel
 constructor(
   private val commitmentRepository: CommitmentRepository,
   private val accountabilityMetadataRepository: AccountabilityMetadataRepository,
+  private val accountabilityPinRepository: AccountabilityPinRepository,
   private val securityEventRepository: SecurityEventRepository,
   private val vpnFilterMonitor: VpnFilterMonitor,
   private val timeProvider: TimeProvider,
@@ -108,16 +115,37 @@ constructor(
           }
           val metadataPinEnabled =
             metadataResult is PersistenceResult.Success && metadataResult.data.isPinEnabled
-          if (commitment.rules.requirePinForEmergencyTermination || metadataPinEnabled) {
-            // Fail closed: PIN verification/Keystore is out of scope for Milestone 3 and must not be bypassed.
+          val pinRequired =
+            commitment.rules.requirePinForEmergencyTermination || metadataPinEnabled
+          if (pinRequired) {
+            val available = runCatching { accountabilityPinRepository.isCredentialAvailable() }.getOrDefault(false)
+            if (!available) {
+              // Fail closed: never allow emergency termination without a verifiable Keystore PIN credential.
+              _uiState.value =
+                EmergencyTerminationUiState.BlockedByUnavailablePinVerification(commitment)
+              return@launch
+            }
+            val lockoutMs =
+              runCatching { accountabilityPinRepository.currentLockoutRemainingMillis() }
+                .getOrDefault(0L)
             _uiState.value =
-              EmergencyTerminationUiState.BlockedByUnavailablePinVerification(commitment)
+              EmergencyTerminationUiState.Ready(
+                active = commitment,
+                requiresPin = true,
+                lockoutRemainingSeconds = millisToSecondsCeil(lockoutMs),
+              )
           } else {
             _uiState.value = EmergencyTerminationUiState.Ready(active = commitment)
           }
         }
       }
     }
+  }
+
+  fun setPinInput(value: String) {
+    val current = _uiState.value as? EmergencyTerminationUiState.Ready ?: return
+    val sanitized = value.filter { it.isDigit() }.take(8)
+    _uiState.value = current.copy(pinInput = sanitized, terminationError = null)
   }
 
   fun setWarningConfirmed(confirmed: Boolean) {
@@ -129,38 +157,101 @@ constructor(
     val current = _uiState.value as? EmergencyTerminationUiState.Ready ?: return
     if (current.isSubmitting) return
 
-    val now = timeProvider.currentWallClock()
-    when (
-      val result =
-        CommitmentStateMachine.emergencyTerminate(
-          commitment = current.active,
-          confirmedWarning = current.confirmedWarning,
-          pinVerification = PinVerificationResult.NOT_PROVIDED,
-          now = now,
+    if (!current.confirmedWarning) {
+      _uiState.value =
+        current.copy(
+          terminationError =
+            "Explicit confirmation is required before terminating an active commitment."
         )
-    ) {
-      is CommitmentResult.Failure -> {
-        val message =
-          when (result.error) {
-            CommitmentTransitionError.WarningConfirmationRequired ->
-              "Explicit confirmation is required before terminating an active commitment."
-            CommitmentTransitionError.PinAuthorizationRequired ->
-              "Accountability PIN verification is required and not available in Milestone 3."
-            CommitmentTransitionError.TimestampPrecedesActivation ->
-              "Device clock appears earlier than activation time; refusing invalid termination timestamp."
-            else -> "Unable to perform emergency termination."
+      return
+    }
+
+    if (current.requiresPin && current.pinInput.isBlank()) {
+      _uiState.value =
+        current.copy(
+          terminationError = "Enter your Accountability PIN to authorize emergency termination."
+        )
+      return
+    }
+
+    _uiState.value = current.copy(isSubmitting = true, terminationError = null)
+    viewModelScope.launch {
+      val pinVerificationResult =
+        if (!current.requiresPin) {
+          PinVerificationResult.NOT_PROVIDED
+        } else {
+          when (val verifyStatus = accountabilityPinRepository.verifyPin(current.pinInput)) {
+            PinVerificationStatus.Verified -> PinVerificationResult.VERIFIED
+            is PinVerificationStatus.Failed -> {
+              val lockoutSec = millisToSecondsCeil(verifyStatus.lockoutRemainingMillis)
+              val message =
+                if (lockoutSec > 0L) {
+                  "Too many incorrect PIN attempts. Wait ${lockoutSec}s before trying again."
+                } else {
+                  "Incorrect Accountability PIN. ${verifyStatus.attemptsRemainingBeforeCooldown} attempt(s) left before cooldown."
+                }
+              _uiState.value =
+                current.copy(
+                  isSubmitting = false,
+                  pinInput = "",
+                  lockoutRemainingSeconds = lockoutSec,
+                  terminationError = message,
+                )
+              return@launch
+            }
+            is PinVerificationStatus.LockedOut -> {
+              val lockoutSec = millisToSecondsCeil(verifyStatus.remainingMillis)
+              _uiState.value =
+                current.copy(
+                  isSubmitting = false,
+                  pinInput = "",
+                  lockoutRemainingSeconds = lockoutSec,
+                  terminationError =
+                    "Accountability PIN verification is cooling down (${lockoutSec}s remaining).",
+                )
+              return@launch
+            }
+            PinVerificationStatus.NotConfigured,
+            is PinVerificationStatus.Unavailable -> {
+              _uiState.value =
+                EmergencyTerminationUiState.BlockedByUnavailablePinVerification(current.active)
+              return@launch
+            }
           }
-        _uiState.value = current.copy(terminationError = message)
-      }
-      is CommitmentResult.Success -> {
-        val terminated = result.commitment
-        _uiState.value = current.copy(isSubmitting = true, terminationError = null)
-        viewModelScope.launch {
+        }
+
+      val now = timeProvider.currentWallClock()
+      when (
+        val result =
+          CommitmentStateMachine.emergencyTerminate(
+            commitment = current.active,
+            confirmedWarning = current.confirmedWarning,
+            pinVerification = pinVerificationResult,
+            now = now,
+          )
+      ) {
+        is CommitmentResult.Failure -> {
+          val message =
+            when (result.error) {
+              CommitmentTransitionError.WarningConfirmationRequired ->
+                "Explicit confirmation is required before terminating an active commitment."
+              CommitmentTransitionError.PinAuthorizationRequired ->
+                "Valid Accountability PIN verification is required before terminating this commitment."
+              CommitmentTransitionError.TimestampPrecedesActivation ->
+                "Device clock appears earlier than activation time; refusing invalid termination timestamp."
+              else -> "Unable to perform emergency termination."
+            }
+          _uiState.value =
+            current.copy(isSubmitting = false, pinInput = "", terminationError = message)
+        }
+        is CommitmentResult.Success -> {
+          val terminated = result.commitment
           when (val saveResult = commitmentRepository.saveCommitment(terminated)) {
             is PersistenceResult.Failure -> {
               _uiState.value =
                 current.copy(
                   isSubmitting = false,
+                  pinInput = "",
                   terminationError = saveResult.error.toDisplayMessage(),
                 )
             }
@@ -175,7 +266,7 @@ constructor(
                 )
               )
               runCatching { vpnFilterMonitor.onCommitmentEnded() }
-              _uiState.value = current.copy(isSubmitting = false)
+              _uiState.value = current.copy(isSubmitting = false, pinInput = "")
               _effects.send(EmergencyTerminationEffect.NavigateToDashboard)
             }
           }
@@ -183,4 +274,7 @@ constructor(
       }
     }
   }
+
+  private fun millisToSecondsCeil(millis: Long): Long =
+    if (millis <= 0L) 0L else ceil(millis / 1000.0).toLong().coerceAtLeast(1L)
 }

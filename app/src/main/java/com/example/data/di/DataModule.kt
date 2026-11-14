@@ -7,7 +7,14 @@ import com.example.data.repository.RoomAccountabilityMetadataRepository
 import com.example.data.repository.RoomCommitmentRepository
 import com.example.data.repository.RoomDailyUsageRepository
 import com.example.data.repository.RoomDomainFilterRepository
+import com.example.data.repository.RoomRemovalRequestRepository
 import com.example.data.repository.RoomSecurityEventRepository
+import com.example.data.security.AndroidKeystorePinCredentialCipher
+import com.example.data.security.LocalAccountabilityPinRepository
+import com.example.data.security.PinCredentialCipher
+import com.example.domain.pin.AccountabilityPinRepository
+import com.example.domain.pin.Pbkdf2PinHasher
+import com.example.domain.pin.PinHasher
 import com.example.domain.repository.AccountabilityMetadataRepository
 import com.example.domain.repository.CommitmentRepository
 import com.example.domain.repository.DailyUsageRepository
@@ -15,6 +22,7 @@ import com.example.domain.repository.DomainDatasetSignatureVerifier
 import com.example.domain.repository.DomainFilterRepository
 import com.example.domain.repository.FoundationRepository
 import com.example.domain.repository.NoTrustedKeySignatureVerifier
+import com.example.domain.repository.RemovalRequestRepository
 import com.example.domain.repository.RemoteDatasetUpdater
 import com.example.domain.repository.SecurityEventRepository
 import com.example.domain.repository.UserPreferencesRepository
@@ -64,6 +72,28 @@ abstract class DataModule {
   abstract fun bindAccountabilityMetadataRepository(
     impl: RoomAccountabilityMetadataRepository,
   ): AccountabilityMetadataRepository
+
+  @Binds
+  @Singleton
+  abstract fun bindRemovalRequestRepository(
+    impl: RoomRemovalRequestRepository,
+  ): RemovalRequestRepository
+
+  @Binds
+  @Singleton
+  abstract fun bindPinHasher(impl: Pbkdf2PinHasher): PinHasher
+
+  @Binds
+  @Singleton
+  abstract fun bindPinCredentialCipher(
+    impl: AndroidKeystorePinCredentialCipher,
+  ): PinCredentialCipher
+
+  @Binds
+  @Singleton
+  abstract fun bindAccountabilityPinRepository(
+    impl: LocalAccountabilityPinRepository,
+  ): AccountabilityPinRepository
 
   @Binds
   @Singleton

@@ -319,4 +319,46 @@ class RoomRepositoriesTest {
         (securityEventRepository.observeSecurityEvents().first() as PersistenceResult.Success).data
       assertEquals(listOf(event), events)
     }
+
+  @Test
+  fun `daily usage records blocked attempts and queries recent usage while removal repo persists cooling-off requests`() =
+    runTest {
+      val draft = CommitmentStateMachine.createDraft(CommitmentId("c-m7-room"), rules, createdAt)
+      val active =
+        (CommitmentStateMachine.activate(draft, true, createdAt) as CommitmentResult.Success)
+          .commitment
+      commitmentRepository.saveCommitment(active)
+
+      val day1 = DomainDate(2026, 11, 13)
+      assertEquals(
+        PersistenceResult.Success(Unit),
+        dailyUsageRepository.recordBlockedAttempt(active.id, day1),
+      )
+      assertEquals(
+        PersistenceResult.Success(Unit),
+        dailyUsageRepository.recordBlockedAttempt(active.id, day1),
+      )
+      val reloaded =
+        (dailyUsageRepository.getDailyUsage(active.id, day1) as PersistenceResult.Success).data
+      assertEquals(2, reloaded.blockedAttempts)
+
+      val recent =
+        (dailyUsageRepository.observeRecentDailyUsage(10).first() as PersistenceResult.Success).data
+      assertEquals(1, recent.size)
+      assertEquals(2, recent.single().blockedAttempts)
+
+      val removalRepo = RoomRemovalRequestRepository(database.removalRequestDao(), dispatcherProvider)
+      val req =
+        com.example.domain.lifecycle.RemovalRequestStateMachine.createRequest(
+          id = com.example.domain.model.RemovalRequestId("rem-room-1"),
+          commitmentId = active.id,
+          nowWall = createdAt,
+          nowMonotonic = com.example.domain.time.MonotonicTimestamp(1_000L),
+          bootSessionToken = "boot:1",
+        )
+      assertEquals(PersistenceResult.Success(Unit), removalRepo.saveRequest(req))
+      val latest = (removalRepo.observeLatestRequest().first() as PersistenceResult.Success).data
+      assertEquals(req, latest)
+      assertEquals(req, (removalRepo.getLatestOpenRequest() as PersistenceResult.Success).data)
+    }
 }

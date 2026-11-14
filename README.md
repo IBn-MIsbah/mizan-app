@@ -2,40 +2,42 @@
 
 Offline-first native Android digital-discipline application built with Kotlin, Jetpack Compose, Material 3, Hilt, Room, DataStore, and Navigation Compose. MIZAN helps users voluntarily commit to intentional technology use without accounts, cloud sync, ads, external analytics, or manipulative engagement.
 
-## Current Status: Milestone 6 — Website and Domain Filtering
+## Current Status: Milestone 7 — Hardening and Release Preparation
 
-Milestone 6 adds optional, on-device DNS-level website and domain filtering using Android `VpnService`, bounded packet parsing, Room v3 persistence, and explicit user consent/health reporting on top of Milestones 0–5:
+Milestone 7 completes all planned MVP hardening, security, insights, and release-readiness layers on top of Milestones 0–6:
 
 - **Application ID:** `com.ibnmisbah.mizan` (preserving template namespace `com.example`)
-- **Local DNS-Only VPN Routing (`platform/vpn/DomainFilterVpnService.kt`, `platform/vpn/UnderlyingDnsResolver.kt`):**
-  - Establishes a local TUN interface with address `10.120.0.1/32`, virtual DNS server `10.120.0.2`, and single host route `10.120.0.2/32` (`allowBypass()`, `addDisallowedApplication(packageName)`, `SUPPORTS_ALWAYS_ON = false`).
-  - Does **not** capture `0.0.0.0/0` or `::/0`; ordinary TCP/UDP/HTTPS browsing traffic bypasses the TUN untouched and is never routed through a remote MIZAN server.
-  - Allowed DNS queries are forwarded asynchronously (bounded semaphore) via `VpnService.protect()` + `network.bindSocket()` UDP sockets to the active underlying non-VPN network's IPv4 `LinkProperties.dnsServers` (never hardcoded third-party resolvers).
-- **Bounded Pure DNS Engine (`platform/dns/DnsWireCodec.kt`, `Ipv4UdpDnsPacketCodec.kt`, `DnsQueryProcessor.kt`):**
-  - Parses IPv4 UDP port 53 DNS frames (TUN MTU 1500, max DNS packet 4096 bytes, header/length bounds, max 16 compression-pointer jumps + visited-offset cycle detection, max 253-char QNAME).
-  - Supports `A`, `AAAA`, `HTTPS` (type 65), `SVCB` (type 64), OPT EDNS0 UDP payload-size inspection, and forwarding other UDP record queries; replies to blocked queries locally with `NXDOMAIN` (`ANCOUNT=0`) while preserving transaction IDs, opcode, and `RD` flag.
-- **Pure Domain Normalization & Matching (`domain/filter/DomainNormalizer.kt`, `DomainRuleMatcher.kt`):**
-  - Case-insensitive ASCII & IDN (`java.net.IDN.toASCII`) normalization, trailing-dot stripping, strict label validation, label-boundary matching (`example.com` matches `example.com` and `sub.example.com`, never `notexample.com` or `example.com.attacker.test`), and explicit precedence (`ALLOW` > `BLOCK`, active commitment lifecycle gates).
-- **Dataset Trust & Offline Custom Rules (`domain/filter/DomainFilterModels.kt`, `data/local/dao/DomainFilterDao.kt`, `data/repository/RoomDomainFilterRepository.kt`):**
-  - Room schema **v3** (`MIGRATION_2_3` preserved + exported `3.json`) stores user `BLOCK`/`ALLOW` custom rules, category toggles, and dataset metadata/integrity checks without storing any DNS query history.
-  - Because no signed built-in or remote filter dataset and pinned public verification key exist in this repository, `DisabledRemoteDatasetUpdater` + `NoTrustedKeySignatureVerifier` keep remote updates disabled and built-in category datasets report `DatasetTrustStatus.MISSING_OR_EMPTY` honestly rather than fabricating a partial blocklist. User-configured custom `BLOCK` and `ALLOW` domains work 100% offline.
-- **Consent, Lifecycle & Decoupled Health (`platform/vpn/VpnHealthMonitor.kt`, `core/designsystem/component/VpnFilterHealthCard.kt`, `feature/*`):**
-  - Discloses Android's single-VPN limit, domain-level scope, Private DNS/DoH/DoT/VPN/IP bypasses, and local-only routing before launching `VpnService.prepare()`.
-  - Represents all 10 honest VPN states (`NOT_CONFIGURED`, `PERMISSION_REQUIRED`, `PERMISSION_DENIED`, `READY_INACTIVE`, `STARTING`, `ACTIVE`, `STOPPED_BY_USER`, `REVOKED`, `ANOTHER_VPN_ACTIVE`, `DEGRADED_ERROR`) plus explicit missing/incomplete dataset and Private DNS warnings, respects user stops without silent restart, stops cleanly on commitment completion/emergency termination, and preserves app blocking and usage tracking independently of VPN failures.
+- **Accountability PIN Vault & Emergency Enforcement (`domain/pin/*`, `data/security/*`, `feature/*`):**
+  - Users can configure, verify, change, or remove a local 4–8 digit numeric accountability PIN in **Settings**.
+  - `Pbkdf2PinHasher` derives 256-bit keys with `PBKDF2WithHmacSHA256` (120,000 iterations, 16-byte `SecureRandom` salt, constant-time `MessageDigest.isEqual`, buffer zero-filling).
+  - `AndroidKeystorePinCredentialCipher` wraps the vault payload with AES-256-GCM using a non-backed-up `AndroidKeyStore` key stored in `context.noBackupFilesDir`.
+  - Progressive verification cooldown (`30s` -> `60s` -> `300s` after 3+ failed attempts), clock-regression-safe lockout checks, and zero plaintext PINs in Room, logs, or `SecurityEvent`s.
+  - Commitment Setup enforces configuring a PIN before enabling PIN-gated emergency termination, and Emergency Termination fails closed (`BlockedByUnavailablePinVerification`) if the PIN vault cannot be verified.
+- **Voluntary 24-Hour Removal Request (`domain/model/RemovalRequest.kt`, `domain/lifecycle/RemovalRequestStateMachine.kt`, `data/repository/RoomRemovalRequestRepository.kt`):**
+  - Room schema **v4** (`MIGRATION_3_4` + exported `4.json` alongside `1.json`/`2.json`/`3.json`) adds `removal_requests` and `daily_usages.blocked_attempts`.
+  - Users can initiate a 24-hour cooling-off request in Settings, inspect exact timestamps and remaining wait duration, cancel anytime before execution, or execute deactivation once 24 hours genuinely elapse (conservatively blocking same-boot forward clock jumps and backward clock changes).
+  - Disclosed honestly as a voluntary cooling-off deterrent that cannot block OS Settings uninstall, ADB, safe mode, or factory reset.
+- **Local Usage Insights (`domain/insights/UsageInsightsCalculator.kt`, `core/designsystem/component/DashboardInsightsCard.kt`):**
+  - Tracks blocked app launch attempts per commitment/day in Room without recording browsing history.
+  - Computes 7-day trend bars, 7-day total & measured daily average, Hybrid consecutive days within allowance, commitment completion vs emergency-termination totals, and honest prior-vs-recent baseline comparisons (reporting `InsufficientData` until >= 6 measured days exist).
+- **Boot/Update Recovery & Battery Optimization Health (`platform/recovery/BootAndUpdateRecoveryReceiver.kt`, `platform/health/BatteryOptimizationMonitor.kt`):**
+  - `BootAndUpdateRecoveryReceiver` (`BOOT_COMPLETED` and `MY_PACKAGE_REPLACED`) recovers unfinished usage sessions conservatively, refreshes Accessibility/Usage Access/Battery/VPN health, records non-sensitive recovery `SecurityEvent`s, and attempts background VPN resume only when previously consented and permitted by Android.
+  - Play-compliant read-only `BatteryOptimizationMonitor` flags aggressive optimization (`OPTIMIZED`) and links directly to system settings (never declaring `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`).
+- **Release Hardening (`AndroidManifest.xml`, `backup_rules.xml`, `data_extraction_rules.xml`, `proguard-rules.pro`):**
+  - Disables OS auto-backup (`android:allowBackup="false"`) with empty backup/extraction rules so Keystore-sealed PIN state and local discipline records never leak to cloud backups.
+  - Configures explicit ProGuard/R8 rules for `@Serializable` navigation/domain/DNS DTOs, Room entities, and `AndroidKeyStore`.
 
-### Explicitly Deferred / Future Work (Milestone 7 & Post-MVP)
+### Explicitly Post-MVP
 
-Per `AGENTS.md` and the Milestone 6 specification, the following remain deferred:
+Per `AGENTS.md`:
 
-- Accountability PIN cryptography / Android Keystore verification, historical insights polish, battery/OEM hardening, and signed filter dataset feed integration once a verified external feed & pinned key are selected
-- YouTube Shorts-only detection research (post-MVP, explicitly **not** substituted by blocking all of `youtube.com`)
+- **Signed External Filter Feed:** `DisabledRemoteDatasetUpdater` + `NoTrustedKeySignatureVerifier` remain in place until an external blocklist feed, license, and pinned public verification key are selected. User-configured custom `BLOCK`/`ALLOW` domains operate 100% offline.
+- **YouTube Shorts-Only Detection:** Intentionally deferred post-MVP due to fragile app/UI heuristics and explicitly **not** substituted by blocking all of `youtube.com`.
 
 ### Privacy, Policy, and Platform Limitations
 
-- **Zero DNS Query History:** MIZAN never persists, transmits, or logs queried domain names or browsing history. Security events record only non-sensitive lifecycle transitions (`VPN_FILTER_STARTED`, `VPN_FILTER_STOPPED`, `VPN_FILTER_REVOKED`, `VPN_FILTER_CONFLICT_DETECTED`, `VPN_FILTER_DEGRADED`).
-- **DNS Filtering Scope & Bypasses:** Local DNS filtering cannot inspect HTTPS paths/content (no TLS MITM), does not support TCP DNS / DNS-over-HTTPS (DoH) / Android Private DNS (DoT) / IP-literal connections / proxies, and can be displaced by another VPN because Android permits only one active VPN at a time. Android's `VpnFilterMonitor` explicitly surfaces Private DNS (`LinkProperties.isPrivateDnsActive`) warnings to the user.
-- **Play Policy & FGS Type:** Uses `FOREGROUND_SERVICE_TYPE_SPECIAL_USE` with explicit manifest subtype declaration and low-importance notification only while the local DNS VPN is actively running (`SUPPORTS_ALWAYS_ON = false`).
-- **Existing Accessibility & Usage Access Boundaries:** Foreground window package transitions (`canRetrieveWindowContent="false"`) and optional `UsageStatsManager` reconciliation remain strictly offline on-device and continue operating independently even if VPN filtering stops or fails.
+- **Zero Cloud / Zero Tracking:** No accounts, remote servers, analytics SDKs, or ads. Zero DNS query history or plaintext PINs are stored or logged.
+- **Best-Effort Android Enforcement:** App blocking (`AccessibilityService`), DNS filtering (local `VpnService`), the accountability PIN, and the 24-hour cooling-off workflow are voluntary self-discipline aids. They can be bypassed via Android Settings uninstall/force-stop, safe mode, ADB, Private DNS / DoH / another active VPN, or device reset. MIZAN never uses Device Owner or Play-restricted permissions (`REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`, `QUERY_ALL_PACKAGES`, broad storage access).
 
 ## Prerequisites
 
@@ -51,38 +53,42 @@ app/src/main/java/com/example/
 ├── MainActivity.kt                  # Single-activity edge-to-edge host + ThemePreference
 ├── core/
 │   ├── common/                      # DispatcherProvider, IdGenerator, PersistenceError formatting
-│   ├── designsystem/component/      # M3 components, AccessibilityHealthCard, UsageAccessCard, VpnFilterHealthCard
+│   ├── designsystem/component/      # M3 cards, Insights, Accessibility, Usage Access, Battery, VPN cards
 │   ├── di/                          # Core Hilt bindings (DispatcherProvider, TimeProvider, IdGenerator)
 │   ├── navigation/                  # @Serializable routes & MizanNavHost
 │   └── time/                        # SystemTimeProvider (calendar/DST midnight lookup) & formatting
 ├── data/
-│   ├── di/                          # Room (MIGRATION_1_2, MIGRATION_2_3) & DataStore Hilt bindings
-│   ├── local/                       # Room database (v3 + 1.json/2.json/3.json schemas), DAOs, DataStore
-│   └── repository/                  # Commitment, UserPreferences, and DomainFilter repository implementations
+│   ├── di/                          # Room (MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4) & DataStore bindings
+│   ├── local/                       # Room database (v4 + 1.json..4.json schemas), DAOs, DataStore
+│   ├── repository/                  # Commitment, DailyUsage, RemovalRequest, UserPreferences, DomainFilter repos
+│   └── security/                    # AndroidKeystore AES-GCM cipher & encrypted local PIN vault
 ├── domain/
 │   ├── allowance/                   # SharedAllowanceAccountant, MidnightIntervalSplitter, IntervalOverlapFilter
 │   ├── evaluator/                   # RestrictionEvaluator & RestrictionDecision
 │   ├── filter/                      # DomainNormalizer, DomainRuleMatcher, DomainFilterModels, DomainFilterRepository
-│   ├── lifecycle/                   # CommitmentStateMachine & CommitmentRulesValidator
-│   ├── model/                       # Commitment, Rules, DailyUsage, UsageCoverageStatus, SecurityEvent, Preferences
+│   ├── insights/                    # UsageInsightsCalculator & baseline/trend/streak metrics
+│   ├── lifecycle/                   # CommitmentStateMachine, CommitmentRulesValidator, RemovalRequestStateMachine
+│   ├── model/                       # Commitment, Rules, DailyUsage, RemovalRequest, SecurityEvent, Preferences
+│   ├── pin/                         # Pbkdf2PinHasher, PinFormatValidator, AccountabilityPinRepository
 │   ├── repository/                  # Pure domain repository contracts
 │   └── time/                        # Platform-independent DomainDate/Time/WallClockPoint
 ├── feature/
 │   ├── blocking/                    # BlockingActivity, BlockingScreen & BlockingViewModel
 │   ├── onboarding/                  # First-launch & revisit onboarding screen
-│   ├── home/                        # Dashboard screen, usage coverage, allowance status, Accessibility & VPN health
-│   ├── commitments/                 # Commitment setup with installed-app selection & website/domain rule editor
+│   ├── home/                        # Dashboard screen, Insights, usage coverage & platform health cards
+│   ├── commitments/                 # Commitment setup with installed apps, domain rules & PIN requirement
 │   ├── review/                      # Review & explicit agreement screen & ViewModel
 │   ├── completion/                  # Completion & next-step choices screen & ViewModel
-│   ├── emergency/                   # Emergency termination screen & ViewModel
-│   └── settings/                    # Settings, privacy, Accessibility, Usage Access, and VPN/Dataset controls
+│   ├── emergency/                   # Emergency termination with verified PIN gate & lockout countdown
+│   └── settings/                    # PIN vault, 24h removal request, Privacy, Health, Battery & VPN controls
 ├── platform/
 │   ├── accessibility/               # AppRestrictionAccessibilityService + screen-off/shutdown receiver
 │   ├── apps/                        # PackageManagerInstalledAppRepository
 │   ├── di/                          # Platform Hilt module
 │   ├── dns/                         # DnsWireCodec, Ipv4UdpDnsPacketCodec, DnsQueryProcessor
-│   ├── enforcement/                 # AppRestrictionCoordinator, PackageNameValidator, BlockingUiLauncher
-│   ├── health/                      # AndroidEnforcementHealthMonitor & AndroidUsageAccessMonitor
+│   ├── enforcement/                 # AppRestrictionCoordinator, blocked attempt counter, BlockingUiLauncher
+│   ├── health/                      # Accessibility, Usage Access, and Battery Optimization monitors
+│   ├── recovery/                    # BootAndUpdateRecoveryReceiver & BootRecoveryCoordinator
 │   ├── usage/                       # ForegroundUsageTracker, UsageStatsReconciler, BootSessionProvider, InteractiveState
 │   └── vpn/                         # DomainFilterVpnService, UnderlyingDnsResolver, VpnHealthMonitor
 └── ui/

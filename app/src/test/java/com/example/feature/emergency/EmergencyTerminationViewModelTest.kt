@@ -14,6 +14,7 @@ import com.example.domain.model.RestrictionMode
 import com.example.domain.model.SecurityEventType
 import com.example.domain.repository.PersistenceResult
 import com.example.testing.FakeAccountabilityMetadataRepository
+import com.example.testing.FakeAccountabilityPinRepository
 import com.example.testing.FakeCommitmentRepository
 import com.example.testing.FakeIdGenerator
 import com.example.testing.FakeSecurityEventRepository
@@ -58,6 +59,7 @@ class EmergencyTerminationViewModelTest {
       EmergencyTerminationViewModel(
         commitmentRepository = repo,
         accountabilityMetadataRepository = FakeAccountabilityMetadataRepository(),
+        accountabilityPinRepository = FakeAccountabilityPinRepository(),
         securityEventRepository = securityRepo,
         vpnFilterMonitor = FakeVpnFilterMonitor(),
         timeProvider = timeProvider,
@@ -91,14 +93,15 @@ class EmergencyTerminationViewModelTest {
   }
 
   @Test
-  fun `pin protected commitment fails closed and never bypasses verification`() = runTest {
+  fun `pin protected commitment fails closed when pin credential unavailable and verifies real pin when available`() = runTest {
     val active = createActive(requirePin = true)
     val repo = FakeCommitmentRepository(listOf(active))
-    val viewModel =
+    val unavailableViewModel =
       EmergencyTerminationViewModel(
         commitmentRepository = repo,
         accountabilityMetadataRepository =
           FakeAccountabilityMetadataRepository(AccountabilityMetadata(isPinEnabled = true)),
+        accountabilityPinRepository = FakeAccountabilityPinRepository(initialPin = null),
         securityEventRepository = FakeSecurityEventRepository(),
         vpnFilterMonitor = FakeVpnFilterMonitor(),
         timeProvider = timeProvider,
@@ -108,12 +111,54 @@ class EmergencyTerminationViewModelTest {
     advanceUntilIdle()
 
     assertTrue(
-      viewModel.uiState.value is EmergencyTerminationUiState.BlockedByUnavailablePinVerification
+      unavailableViewModel.uiState.value
+        is EmergencyTerminationUiState.BlockedByUnavailablePinVerification
     )
-    viewModel.confirmTermination()
+    unavailableViewModel.confirmTermination()
     advanceUntilIdle()
     assertTrue(
       (repo.getCommitment(active.id) as PersistenceResult.Success).data is Commitment.Active
+    )
+
+    // With real PIN credential available: wrong PIN rejects, correct PIN terminates
+    val securityRepo = FakeSecurityEventRepository()
+    val pinRepo = FakeAccountabilityPinRepository(initialPin = "4829")
+    val pinViewModel =
+      EmergencyTerminationViewModel(
+        commitmentRepository = repo,
+        accountabilityMetadataRepository =
+          FakeAccountabilityMetadataRepository(AccountabilityMetadata(isPinEnabled = true)),
+        accountabilityPinRepository = pinRepo,
+        securityEventRepository = securityRepo,
+        vpnFilterMonitor = FakeVpnFilterMonitor(),
+        timeProvider = timeProvider,
+        idGenerator = FakeIdGenerator(),
+        savedStateHandle = SavedStateHandle(mapOf("commitmentId" to active.id.value)),
+      )
+    advanceUntilIdle()
+
+    val ready = pinViewModel.uiState.value as EmergencyTerminationUiState.Ready
+    assertTrue(ready.requiresPin)
+
+    pinViewModel.setWarningConfirmed(true)
+    pinViewModel.setPinInput("0000")
+    pinViewModel.confirmTermination()
+    advanceUntilIdle()
+
+    assertTrue(
+      (repo.getCommitment(active.id) as PersistenceResult.Success).data is Commitment.Active
+    )
+    assertNotNull((pinViewModel.uiState.value as EmergencyTerminationUiState.Ready).terminationError)
+
+    pinViewModel.setPinInput("4829")
+    pinViewModel.confirmTermination()
+    advanceUntilIdle()
+
+    val saved = (repo.getCommitment(active.id) as PersistenceResult.Success).data
+    assertTrue(saved is Commitment.EmergencyTerminated && saved.pinVerified)
+    assertEquals(
+      SecurityEventType.EMERGENCY_TERMINATED,
+      securityRepo.recordedEvents.single().eventType,
     )
   }
 }

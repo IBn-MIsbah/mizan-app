@@ -276,6 +276,11 @@ constructor(
           if (launched) {
             lastBlockedPackage = packageName
             lastBlockLaunchedMonotonicMs = nowMonotonic.elapsedMillis
+            withContext(dispatcherProvider.io) {
+              runCatching {
+                dailyUsageRepository.recordBlockedAttempt(commitment.id, nowWallClock.date)
+              }
+            }
           }
         }
       } else {

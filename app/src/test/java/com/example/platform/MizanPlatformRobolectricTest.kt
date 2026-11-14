@@ -46,6 +46,7 @@ import com.example.platform.health.AccessibilityPermissionStatus
 import com.example.platform.health.AndroidEnforcementHealthMonitor
 import com.example.platform.health.EnforcementHealthSnapshot
 import com.example.platform.health.EnforcementHealthStatus
+import com.example.testing.FakeAccountabilityMetadataRepository
 import com.example.testing.FakeCommitmentRepository
 import com.example.testing.FakeDispatcherProvider
 import com.example.testing.FakeDomainFilterRepository
@@ -255,6 +256,7 @@ class MizanPlatformRobolectricTest {
         commitmentRepository = FakeCommitmentRepository(listOf(staleDraft)),
         installedAppRepository = FakeInstalledAppRepository(InstalledAppsResult.Success(listOf(installedApp))),
         domainFilterRepository = FakeDomainFilterRepository(),
+        accountabilityMetadataRepository = FakeAccountabilityMetadataRepository(),
         timeProvider = timeProvider,
         idGenerator = FakeIdGenerator(),
       )

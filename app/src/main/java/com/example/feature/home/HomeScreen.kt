@@ -49,6 +49,8 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.R
 import com.example.core.designsystem.component.AccessibilityHealthCard
+import com.example.core.designsystem.component.BatteryOptimizationCard
+import com.example.core.designsystem.component.DashboardInsightsCard
 import com.example.core.designsystem.component.MizanBrandHeader
 import com.example.core.designsystem.component.MizanEmptyStateCard
 import com.example.core.designsystem.component.MizanScopeNoticeCard
@@ -56,6 +58,7 @@ import com.example.core.designsystem.component.MizanStatusBadge
 import com.example.core.designsystem.component.MizanSurfaceCard
 import com.example.core.designsystem.component.UsageAccessCard
 import com.example.core.designsystem.component.VpnFilterHealthCard
+import com.example.platform.health.BatteryOptimizationStatus
 import com.example.core.time.WallClockFormatting
 import com.example.domain.model.Commitment
 import com.example.domain.model.CommitmentRules
@@ -78,9 +81,11 @@ fun HomeRoute(
   val context = LocalContext.current
   var settingsLaunchError by remember { mutableStateOf<String?>(null) }
   var usageSettingsLaunchError by remember { mutableStateOf<String?>(null) }
+  var batterySettingsLaunchError by remember { mutableStateOf<String?>(null) }
   var vpnActionError by remember { mutableStateOf<String?>(null) }
   val launchErrorText = stringResource(R.string.health_open_settings_error)
   val usageLaunchErrorText = stringResource(R.string.usage_access_open_settings_error)
+  val batteryLaunchErrorText = stringResource(R.string.battery_open_settings_error)
 
   val vpnPermissionLauncher =
     rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -90,6 +95,7 @@ fun HomeRoute(
   LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
     settingsLaunchError = null
     usageSettingsLaunchError = null
+    batterySettingsLaunchError = null
     vpnActionError = null
     viewModel.refreshEnforcementHealth()
   }
@@ -113,6 +119,16 @@ fun HomeRoute(
       }
     },
     usageSettingsLaunchError = usageSettingsLaunchError,
+    onOpenBatterySettings = {
+      batterySettingsLaunchError = null
+      val started =
+        runCatching { context.startActivity(viewModel.createBatteryOptimizationSettingsIntent()) }
+          .isSuccess
+      if (!started) {
+        batterySettingsLaunchError = batteryLaunchErrorText
+      }
+    },
+    batterySettingsLaunchError = batterySettingsLaunchError,
     onVpnConsentChanged = viewModel::setWebsiteFilteringConsent,
     onEnableAndStartVpn = {
       vpnActionError = null
@@ -149,6 +165,8 @@ fun HomeScreen(
   settingsLaunchError: String? = null,
   onOpenUsageAccessSettings: () -> Unit = {},
   usageSettingsLaunchError: String? = null,
+  onOpenBatterySettings: () -> Unit = {},
+  batterySettingsLaunchError: String? = null,
   onVpnConsentChanged: (Boolean) -> Unit = {},
   onEnableAndStartVpn: () -> Unit = {},
   onStopVpn: () -> Unit = {},
@@ -277,6 +295,15 @@ fun HomeScreen(
             }
           }
 
+          if (content.insights != null) {
+            item {
+              DashboardInsightsCard(
+                insights = content.insights,
+                hasActiveCommitment = content.status is DashboardStatus.Active,
+              )
+            }
+          }
+
           item {
             AccessibilityHealthCard(
               healthSnapshot = content.healthSnapshot,
@@ -293,6 +320,17 @@ fun HomeScreen(
               testTagPrefix = "dashboard_usage_access",
               settingsLaunchError = usageSettingsLaunchError,
             )
+          }
+
+          if (content.batteryOptimizationSnapshot.status == BatteryOptimizationStatus.OPTIMIZED) {
+            item {
+              BatteryOptimizationCard(
+                batterySnapshot = content.batteryOptimizationSnapshot,
+                onOpenBatterySettings = onOpenBatterySettings,
+                testTagPrefix = "dashboard_battery_optimization",
+                settingsLaunchError = batterySettingsLaunchError,
+              )
+            }
           }
 
           item {
@@ -748,5 +786,15 @@ internal fun RulesSummaryBlock(rules: CommitmentRules) {
         color = MaterialTheme.colorScheme.onSurfaceVariant,
       )
     }
+    Text(
+      text =
+        if (rules.requirePinForEmergencyTermination) {
+          "Emergency termination PIN protection: Required"
+        } else {
+          "Emergency termination PIN protection: Off"
+        },
+      style = MaterialTheme.typography.bodySmall,
+      color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
   }
 }

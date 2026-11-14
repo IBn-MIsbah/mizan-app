@@ -141,7 +141,11 @@ class MizanMigration2To3Test {
 
       val roomDb =
         Room.databaseBuilder(context, MizanDatabase::class.java, dbName)
-          .addMigrations(DatabaseModule.MIGRATION_1_2, DatabaseModule.MIGRATION_2_3)
+          .addMigrations(
+            DatabaseModule.MIGRATION_1_2,
+            DatabaseModule.MIGRATION_2_3,
+            DatabaseModule.MIGRATION_3_4,
+          )
           .allowMainThreadQueries()
           .build()
 

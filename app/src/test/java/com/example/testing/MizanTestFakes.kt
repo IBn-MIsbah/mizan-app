@@ -5,6 +5,9 @@ import android.provider.Settings
 import com.example.core.common.DispatcherProvider
 import com.example.core.common.IdGenerator
 import com.example.domain.allowance.SharedAllowanceAccountant
+import com.example.data.security.CipherResult
+import com.example.data.security.PinCredentialCipher
+import com.example.data.security.SealedPinBlob
 import com.example.domain.model.AccountabilityMetadata
 import com.example.domain.model.AppPreferences
 import com.example.domain.model.Commitment
@@ -16,11 +19,17 @@ import com.example.domain.model.DomainCategory
 import com.example.domain.model.FilterDatasetMetadata
 import com.example.domain.model.InstalledAppInfo
 import com.example.domain.model.PersistedActiveUsageSession
+import com.example.domain.model.RemovalRequest
+import com.example.domain.model.RemovalRequestStatus
 import com.example.domain.model.SecurityEvent
 import com.example.domain.model.ThemePreference
 import com.example.domain.model.UsageCoverageStatus
 import com.example.domain.model.UsageEvent
 import com.example.domain.model.UsageIntegrityCheckpoint
+import com.example.domain.pin.AccountabilityPinRepository
+import com.example.domain.pin.PinConfigureResult
+import com.example.domain.pin.PinFormatValidator
+import com.example.domain.pin.PinVerificationStatus
 import com.example.domain.repository.AccountabilityMetadataRepository
 import com.example.domain.repository.CommitmentRepository
 import com.example.domain.repository.DailyUsageRepository
@@ -30,6 +39,7 @@ import com.example.domain.repository.InstalledAppRepository
 import com.example.domain.repository.InstalledAppsResult
 import com.example.domain.repository.PersistenceError
 import com.example.domain.repository.PersistenceResult
+import com.example.domain.repository.RemovalRequestRepository
 import com.example.domain.repository.SecurityEventRepository
 import com.example.domain.repository.UserPreferencesRepository
 import com.example.domain.time.DomainDate
@@ -42,6 +52,9 @@ import com.example.platform.enforcement.BlockingUiLauncher
 import com.example.platform.health.AccessibilityPermissionStatus
 import com.example.platform.health.AndroidEnforcementHealthMonitor
 import com.example.platform.health.AndroidUsageAccessMonitor
+import com.example.platform.health.BatteryOptimizationMonitor
+import com.example.platform.health.BatteryOptimizationSnapshot
+import com.example.platform.health.BatteryOptimizationStatus
 import com.example.platform.health.EnforcementHealthMonitor
 import com.example.platform.health.EnforcementHealthSnapshot
 import com.example.platform.health.UsageAccessMonitor
@@ -57,6 +70,7 @@ import com.example.platform.vpn.VpnFilterMonitor
 import com.example.platform.vpn.VpnFilterSnapshot
 import com.example.platform.vpn.VpnServiceLifecycleStatus
 import com.example.platform.vpn.VpnStartRequestOutcome
+import java.util.Base64
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -170,6 +184,24 @@ class FakeDailyUsageRepository : DailyUsageRepository {
       )
     }
 
+  override fun observeRecentDailyUsage(limit: Int): Flow<PersistenceResult<List<DailyUsage>>> =
+    usages.map { map ->
+      readFailure?.let { return@map PersistenceResult.Failure(it) }
+      PersistenceResult.Success(
+        map.values.sortedByDescending { it.date }.take(limit)
+      )
+    }
+
+  override fun observeDailyUsageForCommitment(
+    commitmentId: CommitmentId,
+  ): Flow<PersistenceResult<List<DailyUsage>>> =
+    usages.map { map ->
+      readFailure?.let { return@map PersistenceResult.Failure(it) }
+      PersistenceResult.Success(
+        map.values.filter { it.commitmentId == commitmentId }.sortedBy { it.date }
+      )
+    }
+
   override suspend fun getDailyUsage(
     commitmentId: CommitmentId,
     date: DomainDate,
@@ -178,6 +210,16 @@ class FakeDailyUsageRepository : DailyUsageRepository {
     return PersistenceResult.Success(
       usages.value[commitmentId to date] ?: DailyUsage.empty(commitmentId, date)
     )
+  }
+
+  override suspend fun recordBlockedAttempt(
+    commitmentId: CommitmentId,
+    date: DomainDate,
+  ): PersistenceResult<Unit> {
+    writeFailure?.let { return PersistenceResult.Failure(it) }
+    val current = usages.value[commitmentId to date] ?: DailyUsage.empty(commitmentId, date)
+    setUsage(current.copy(blockedAttempts = current.blockedAttempts + 1))
+    return PersistenceResult.Success(Unit)
   }
 
   override suspend fun recordUsageEvent(
@@ -677,6 +719,174 @@ class FakeBlockingUiLauncher(var shouldSucceed: Boolean = true) : BlockingUiLaun
     requests.add(request)
     return true
   }
+}
+
+class FakePinCredentialCipher : PinCredentialCipher {
+  var failEncryptReason: String? = null
+  var failDecryptReason: String? = null
+
+  override fun encrypt(plaintext: ByteArray): CipherResult<SealedPinBlob> {
+    failEncryptReason?.let { return CipherResult.Failure(it) }
+    val iv = Base64.getEncoder().encodeToString("fake-iv-1234".encodeToByteArray())
+    val encrypted = Base64.getEncoder().encodeToString(plaintext.reversedArray())
+    return CipherResult.Success(SealedPinBlob(ivBase64 = iv, ciphertextBase64 = encrypted))
+  }
+
+  override fun decrypt(blob: SealedPinBlob): CipherResult<ByteArray> {
+    failDecryptReason?.let { return CipherResult.Failure(it) }
+    return try {
+      val bytes = Base64.getDecoder().decode(blob.ciphertextBase64).reversedArray()
+      CipherResult.Success(bytes)
+    } catch (_: IllegalArgumentException) {
+      CipherResult.Failure("Corrupt fake cipher blob")
+    }
+  }
+}
+
+class FakeAccountabilityPinRepository(
+  initialPin: String? = null,
+  var credentialAvailable: Boolean = initialPin != null,
+  var lockoutRemainingMs: Long = 0L,
+  private val metadataRepository: FakeAccountabilityMetadataRepository? = null,
+) : AccountabilityPinRepository {
+  var configuredPin: String? = initialPin
+  var verifyCalls: Int = 0
+  var failedAttempts: Int = 0
+
+  override suspend fun isCredentialAvailable(): Boolean = credentialAvailable && configuredPin != null
+
+  override suspend fun currentLockoutRemainingMillis(): Long = lockoutRemainingMs
+
+  override suspend fun configurePin(newPin: String): PinConfigureResult {
+    PinFormatValidator.validate(newPin)?.let { return PinConfigureResult.InvalidFormat(it) }
+    if (lockoutRemainingMs > 0L) return PinConfigureResult.LockedOut(lockoutRemainingMs)
+    configuredPin = newPin
+    credentialAvailable = true
+    failedAttempts = 0
+    metadataRepository?.setMetadata(AccountabilityMetadata(isPinEnabled = true, updatedAtEpochMillis = 1L))
+    return PinConfigureResult.Success
+  }
+
+  override suspend fun changePin(currentPin: String, newPin: String): PinConfigureResult {
+    PinFormatValidator.validate(newPin)?.let { return PinConfigureResult.InvalidFormat(it) }
+    return when (val verify = verifyPin(currentPin)) {
+      PinVerificationStatus.NotConfigured -> PinConfigureResult.PinNotConfigured
+      is PinVerificationStatus.LockedOut -> PinConfigureResult.LockedOut(verify.remainingMillis)
+      is PinVerificationStatus.Unavailable -> PinConfigureResult.StorageFailure(verify.reason)
+      is PinVerificationStatus.Failed ->
+        if (verify.lockoutRemainingMillis > 0L) PinConfigureResult.LockedOut(verify.lockoutRemainingMillis)
+        else PinConfigureResult.CurrentPinMismatch
+      PinVerificationStatus.Verified -> configurePin(newPin)
+    }
+  }
+
+  override suspend fun removePin(currentPin: String): PinConfigureResult {
+    return when (val verify = verifyPin(currentPin)) {
+      PinVerificationStatus.NotConfigured -> PinConfigureResult.PinNotConfigured
+      is PinVerificationStatus.LockedOut -> PinConfigureResult.LockedOut(verify.remainingMillis)
+      is PinVerificationStatus.Unavailable -> PinConfigureResult.StorageFailure(verify.reason)
+      is PinVerificationStatus.Failed ->
+        if (verify.lockoutRemainingMillis > 0L) PinConfigureResult.LockedOut(verify.lockoutRemainingMillis)
+        else PinConfigureResult.CurrentPinMismatch
+      PinVerificationStatus.Verified -> {
+        configuredPin = null
+        credentialAvailable = false
+        failedAttempts = 0
+        lockoutRemainingMs = 0L
+        metadataRepository?.setMetadata(AccountabilityMetadata(isPinEnabled = false, updatedAtEpochMillis = 2L))
+        PinConfigureResult.Success
+      }
+    }
+  }
+
+  override suspend fun verifyPin(pin: String): PinVerificationStatus {
+    verifyCalls += 1
+    if (lockoutRemainingMs > 0L) return PinVerificationStatus.LockedOut(lockoutRemainingMs)
+    val stored = configuredPin ?: return PinVerificationStatus.NotConfigured
+    if (!credentialAvailable) return PinVerificationStatus.Unavailable("Credential unavailable")
+    return if (pin == stored) {
+      failedAttempts = 0
+      PinVerificationStatus.Verified
+    } else {
+      failedAttempts += 1
+      if (failedAttempts >= 3) {
+        lockoutRemainingMs = 30_000L
+      }
+      PinVerificationStatus.Failed(
+        attemptsRemainingBeforeCooldown = (3 - failedAttempts).coerceAtLeast(0),
+        lockoutRemainingMillis = lockoutRemainingMs,
+      )
+    }
+  }
+
+  override suspend fun clearPinOnVerifiedRemoval(): PersistenceResult<Unit> {
+    configuredPin = null
+    credentialAvailable = false
+    failedAttempts = 0
+    lockoutRemainingMs = 0L
+    metadataRepository?.setMetadata(AccountabilityMetadata(isPinEnabled = false, updatedAtEpochMillis = 3L))
+    return PersistenceResult.Success(Unit)
+  }
+}
+
+class FakeRemovalRequestRepository(
+  initialRequests: List<RemovalRequest> = emptyList(),
+) : RemovalRequestRepository {
+  private val requests = MutableStateFlow(initialRequests)
+  var readFailure: PersistenceError? = null
+  var writeFailure: PersistenceError? = null
+
+  override fun observeLatestRequest(): Flow<PersistenceResult<RemovalRequest?>> =
+    requests.map { list ->
+      readFailure?.let { return@map PersistenceResult.Failure(it) }
+      PersistenceResult.Success(list.maxByOrNull { it.requestedAt.epochMillis })
+    }
+
+  override suspend fun getLatestOpenRequest(): PersistenceResult<RemovalRequest?> {
+    readFailure?.let { return PersistenceResult.Failure(it) }
+    val open =
+      requests.value
+        .filter {
+          it.status == RemovalRequestStatus.PENDING ||
+            it.status == RemovalRequestStatus.READY_TO_EXECUTE
+        }
+        .maxByOrNull { it.requestedAt.epochMillis }
+    return PersistenceResult.Success(open)
+  }
+
+  override suspend fun saveRequest(request: RemovalRequest): PersistenceResult<Unit> {
+    writeFailure?.let { return PersistenceResult.Failure(it) }
+    requests.value = requests.value.filterNot { it.id == request.id } + request
+    return PersistenceResult.Success(Unit)
+  }
+}
+
+class FakeBatteryOptimizationMonitor(
+  initialStatus: BatteryOptimizationStatus = BatteryOptimizationStatus.OPTIMIZED,
+) : BatteryOptimizationMonitor {
+  var systemStatus: BatteryOptimizationStatus = initialStatus
+  private val _batteryState =
+    MutableStateFlow(BatteryOptimizationSnapshot(status = initialStatus, lastCheckedEpochMillis = 1_000L))
+  override val batteryState: StateFlow<BatteryOptimizationSnapshot> = _batteryState.asStateFlow()
+
+  var refreshCount: Int = 0
+    private set
+
+  override fun refreshSystemStatus() {
+    refreshCount += 1
+    _batteryState.update { current ->
+      BatteryOptimizationSnapshot(
+        status = systemStatus,
+        lastCheckedEpochMillis = (current.lastCheckedEpochMillis ?: 0L) + 1L,
+      )
+    }
+  }
+
+  override fun createBatteryOptimizationSettingsIntent(): Intent =
+    Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+
+  override fun createAppDetailsSettingsIntent(): Intent =
+    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
 }
 
 fun createTestUsageTracker(
