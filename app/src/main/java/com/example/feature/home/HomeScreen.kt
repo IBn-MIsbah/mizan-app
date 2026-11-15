@@ -17,12 +17,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.EditNote
+import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.PauseCircleOutline
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.HourglassEmpty
 import androidx.compose.material3.Button
@@ -30,9 +32,11 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -41,6 +45,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -50,19 +57,14 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.R
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.TextButton
-import androidx.compose.ui.draw.clip
 import com.example.core.designsystem.component.AccessibilityHealthCard
 import com.example.core.designsystem.component.BatteryOptimizationCard
 import com.example.core.designsystem.component.ContextualGuideSheet
 import com.example.core.designsystem.component.ContextualHelpButton
 import com.example.core.designsystem.component.DashboardInsightsCard
 import com.example.core.designsystem.component.LocalMizanReducedMotion
-import com.example.core.designsystem.component.MizanBrandHeader
 import com.example.core.designsystem.component.MizanEmptyStateCard
-import com.example.core.designsystem.component.MizanScopeNoticeCard
+import com.example.core.designsystem.component.MizanExpandableSection
 import com.example.core.designsystem.component.MizanStatusBadge
 import com.example.core.designsystem.component.MizanSurfaceCard
 import com.example.core.designsystem.component.UsageAccessCard
@@ -77,6 +79,7 @@ import com.example.domain.model.UsageCoverageStatus
 import com.example.feature.guide.ContextualGuideCatalog
 import com.example.feature.guide.ContextualGuideContext
 import com.example.platform.health.BatteryOptimizationStatus
+import com.example.platform.vpn.VpnServiceLifecycleStatus
 import kotlin.time.Duration
 
 @Composable
@@ -205,11 +208,9 @@ fun HomeScreen(
   Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
     LazyColumn(
       modifier = Modifier.fillMaxWidth().widthIn(max = 640.dp).testTag("home_screen_list"),
-      contentPadding = PaddingValues(horizontal = 20.dp, vertical = 20.dp),
-      verticalArrangement = Arrangement.spacedBy(16.dp),
+      contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
+      verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-      item { MizanBrandHeader() }
-
       item {
         Row(
           modifier = Modifier.fillMaxWidth(),
@@ -218,7 +219,7 @@ fun HomeScreen(
         ) {
           Column(
             modifier = Modifier.weight(1f).padding(end = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
           ) {
             Text(
               text = stringResource(R.string.dashboard_headline),
@@ -341,48 +342,20 @@ fun HomeScreen(
             }
           }
 
-          if (!content.preferences.firstUseGuideCompleted) {
-            item {
-              MizanSurfaceCard(
-                modifier = Modifier.testTag("dashboard_walkthrough_banner_card"),
-                containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.55f),
-              ) {
-                Text(
-                  text = stringResource(R.string.guide_walkthrough_banner_title),
-                  style = MaterialTheme.typography.titleSmall,
-                  color = MaterialTheme.colorScheme.onSurface,
-                )
-                Text(
-                  text = stringResource(R.string.guide_walkthrough_banner_body),
-                  style = MaterialTheme.typography.bodySmall,
-                  color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Row(
-                  modifier = Modifier.fillMaxWidth(),
-                  horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                  Button(
-                    onClick = { onOpenUserGuide(null, true) },
-                    modifier =
-                      Modifier.weight(1f)
-                        .minimumInteractiveComponentSize()
-                        .heightIn(min = 48.dp)
-                        .testTag("dashboard_start_walkthrough_button"),
-                  ) {
-                    Text(text = stringResource(R.string.guide_walkthrough_start_button))
-                  }
-                  TextButton(
-                    onClick = onDismissFirstUseGuide,
-                    modifier =
-                      Modifier.minimumInteractiveComponentSize()
-                        .heightIn(min = 48.dp)
-                        .testTag("dashboard_dismiss_walkthrough_button"),
-                  ) {
-                    Text(text = stringResource(R.string.guide_walkthrough_dismiss_button))
-                  }
-                }
-              }
-            }
+          item {
+            ProtectionReadinessCard(
+              content = content,
+              onOpenAccessibilitySettings = onOpenAccessibilitySettings,
+              settingsLaunchError = settingsLaunchError,
+              onOpenUsageAccessSettings = onOpenUsageAccessSettings,
+              usageSettingsLaunchError = usageSettingsLaunchError,
+              onOpenBatterySettings = onOpenBatterySettings,
+              batterySettingsLaunchError = batterySettingsLaunchError,
+              onVpnConsentChanged = onVpnConsentChanged,
+              onEnableAndStartVpn = onEnableAndStartVpn,
+              onStopVpn = onStopVpn,
+              vpnActionFeedback = vpnActionFeedback,
+            )
           }
 
           if (content.insights != null) {
@@ -394,58 +367,20 @@ fun HomeScreen(
             }
           }
 
-          item {
-            AccessibilityHealthCard(
-              healthSnapshot = content.healthSnapshot,
-              onOpenAccessibilitySettings = onOpenAccessibilitySettings,
-              testTagPrefix = "dashboard_health",
-              settingsLaunchError = settingsLaunchError,
-            )
-          }
-
-          item {
-            UsageAccessCard(
-              usageAccessSnapshot = content.usageAccessSnapshot,
-              onOpenUsageAccessSettings = onOpenUsageAccessSettings,
-              testTagPrefix = "dashboard_usage_access",
-              settingsLaunchError = usageSettingsLaunchError,
-            )
-          }
-
-          if (content.batteryOptimizationSnapshot.status == BatteryOptimizationStatus.OPTIMIZED) {
-            item {
-              BatteryOptimizationCard(
-                batterySnapshot = content.batteryOptimizationSnapshot,
-                onOpenBatterySettings = onOpenBatterySettings,
-                testTagPrefix = "dashboard_battery_optimization",
-                settingsLaunchError = batterySettingsLaunchError,
-              )
-            }
-          }
-
-          item {
-            VpnFilterHealthCard(
-              vpnSnapshot = content.vpnFilterSnapshot,
-              onConsentChanged = onVpnConsentChanged,
-              onEnableAndStartVpn = onEnableAndStartVpn,
-              onStopVpn = onStopVpn,
-              testTagPrefix = "dashboard_vpn_filter",
-              actionFeedback = vpnActionFeedback,
-            )
-          }
-
-          item { MizanScopeNoticeCard() }
-
           if (content.history.isNotEmpty()) {
             item {
-              Text(
-                text = stringResource(R.string.dashboard_history_title),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onBackground,
-              )
-            }
-            items(content.history, key = { it.id.value }) { item ->
-              HistorySummaryCard(commitment = item)
+              MizanSurfaceCard(modifier = Modifier.testTag("dashboard_history_card")) {
+                MizanExpandableSection(
+                  title = stringResource(R.string.disclosure_history_format, content.history.size),
+                  testTag = "dashboard_history_toggle",
+                ) {
+                  Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    content.history.forEach { commitment ->
+                      HistorySummaryCard(commitment = commitment)
+                    }
+                  }
+                }
+              }
             }
           }
         }
@@ -453,6 +388,251 @@ fun HomeScreen(
     }
   }
 }
+
+@Composable
+private fun ProtectionReadinessCard(
+  content: DashboardContent,
+  onOpenAccessibilitySettings: () -> Unit,
+  settingsLaunchError: String?,
+  onOpenUsageAccessSettings: () -> Unit,
+  usageSettingsLaunchError: String?,
+  onOpenBatterySettings: () -> Unit,
+  batterySettingsLaunchError: String?,
+  onVpnConsentChanged: (Boolean) -> Unit,
+  onEnableAndStartVpn: () -> Unit,
+  onStopVpn: () -> Unit,
+  vpnActionFeedback: String?,
+) {
+  val activeCommitment = (content.status as? DashboardStatus.Active)?.commitment
+  val hasActiveAppRules = activeCommitment != null && activeCommitment.rules.restrictedApps.isNotEmpty()
+  val hasActiveWebRules =
+    activeCommitment != null && activeCommitment.rules.hasConfiguredWebsiteFiltering()
+
+  val appActionNeeded =
+    hasActiveAppRules && content.readiness.appStatus != OperationalReadiness.OPERATIONAL
+  val batteryWarningNeeded =
+    activeCommitment != null &&
+      content.batteryOptimizationSnapshot.status == BatteryOptimizationStatus.OPTIMIZED
+  val webActionNeeded =
+    hasActiveWebRules &&
+      (content.readiness.webStatus != OperationalReadiness.OPERATIONAL ||
+        content.vpnFilterSnapshot.isPrivateDnsActive ||
+        content.vpnFilterSnapshot.datasetWarningMessage != null)
+
+  MizanSurfaceCard(modifier = Modifier.testTag("dashboard_protection_status_card")) {
+    Text(
+      text = stringResource(R.string.dashboard_readiness_title),
+      style = MaterialTheme.typography.titleMedium,
+      color = MaterialTheme.colorScheme.onSurface,
+    )
+
+    ReadinessStatusRow(
+      label = stringResource(R.string.dashboard_app_protection_label),
+      status = content.readiness.appStatus,
+      badgeTestTag = "dashboard_app_readiness_badge",
+    )
+    ReadinessStatusRow(
+      label = stringResource(R.string.dashboard_web_protection_label),
+      status = content.readiness.webStatus,
+      badgeTestTag = "dashboard_web_readiness_badge",
+    )
+
+    if (appActionNeeded) {
+      MizanSurfaceCard(
+        containerColor = MaterialTheme.colorScheme.errorContainer,
+        modifier = Modifier.testTag("dashboard_urgent_app_warning"),
+      ) {
+        Text(
+          text =
+            when (content.readiness.appStatus) {
+              OperationalReadiness.ENABLED_NOT_OPERATIONAL ->
+                stringResource(R.string.health_desc_disconnected)
+              OperationalReadiness.UNAVAILABLE -> stringResource(R.string.health_desc_unavailable)
+              else -> stringResource(R.string.health_desc_disabled)
+            },
+          style = MaterialTheme.typography.bodySmall,
+          color = MaterialTheme.colorScheme.onErrorContainer,
+        )
+        TextButton(
+          onClick = onOpenAccessibilitySettings,
+          modifier =
+            Modifier.minimumInteractiveComponentSize()
+              .testTag("dashboard_urgent_fix_a11y_button"),
+        ) {
+          Text(
+            text = stringResource(R.string.health_open_settings_button),
+            color = MaterialTheme.colorScheme.onErrorContainer,
+          )
+        }
+      }
+    }
+
+    if (batteryWarningNeeded) {
+      MizanSurfaceCard(
+        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+        modifier = Modifier.testTag("dashboard_urgent_battery_warning"),
+      ) {
+        Text(
+          text = stringResource(R.string.battery_desc_optimized),
+          style = MaterialTheme.typography.bodySmall,
+          color = MaterialTheme.colorScheme.onTertiaryContainer,
+        )
+        TextButton(
+          onClick = onOpenBatterySettings,
+          modifier =
+            Modifier.minimumInteractiveComponentSize()
+              .testTag("dashboard_urgent_fix_battery_button"),
+        ) {
+          Text(text = stringResource(R.string.battery_open_settings_button))
+        }
+      }
+    }
+
+    if (webActionNeeded) {
+      val vpn = content.vpnFilterSnapshot
+      val webWarningMessage =
+        when {
+          vpn.datasetWarningMessage != null -> vpn.datasetWarningMessage
+          vpn.isPrivateDnsActive -> stringResource(R.string.vpn_private_dns_warning)
+          vpn.status == VpnServiceLifecycleStatus.ANOTHER_VPN_ACTIVE ->
+            stringResource(R.string.vpn_desc_another_vpn)
+          vpn.status == VpnServiceLifecycleStatus.DEGRADED_ERROR ->
+            vpn.lastError ?: stringResource(R.string.vpn_desc_error)
+          else -> stringResource(R.string.vpn_desc_permission_required)
+        }
+      MizanSurfaceCard(
+        containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+        modifier = Modifier.testTag("dashboard_urgent_web_warning"),
+      ) {
+        Text(
+          text = webWarningMessage,
+          style = MaterialTheme.typography.bodySmall,
+          color = MaterialTheme.colorScheme.onTertiaryContainer,
+        )
+        if (vpn.hasConsented && !vpn.isTunnelEstablished) {
+          TextButton(
+            onClick = onEnableAndStartVpn,
+            modifier =
+              Modifier.minimumInteractiveComponentSize()
+                .testTag("dashboard_urgent_fix_vpn_button"),
+          ) {
+            Text(text = stringResource(R.string.vpn_enable_start_button))
+          }
+        }
+      }
+    }
+
+    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+    MizanExpandableSection(
+      title = stringResource(R.string.disclosure_system_health),
+      testTag = "dashboard_system_health_toggle",
+    ) {
+      AccessibilityHealthCard(
+        healthSnapshot = content.healthSnapshot,
+        onOpenAccessibilitySettings = onOpenAccessibilitySettings,
+        testTagPrefix = "dashboard_health",
+        settingsLaunchError = settingsLaunchError,
+      )
+      UsageAccessCard(
+        usageAccessSnapshot = content.usageAccessSnapshot,
+        onOpenUsageAccessSettings = onOpenUsageAccessSettings,
+        testTagPrefix = "dashboard_usage_access",
+        settingsLaunchError = usageSettingsLaunchError,
+      )
+      if (content.batteryOptimizationSnapshot.status == BatteryOptimizationStatus.OPTIMIZED) {
+        BatteryOptimizationCard(
+          batterySnapshot = content.batteryOptimizationSnapshot,
+          onOpenBatterySettings = onOpenBatterySettings,
+          testTagPrefix = "dashboard_battery_optimization",
+          settingsLaunchError = batterySettingsLaunchError,
+        )
+      }
+      VpnFilterHealthCard(
+        vpnSnapshot = content.vpnFilterSnapshot,
+        onConsentChanged = onVpnConsentChanged,
+        onEnableAndStartVpn = onEnableAndStartVpn,
+        onStopVpn = onStopVpn,
+        testTagPrefix = "dashboard_vpn_filter",
+        actionFeedback = vpnActionFeedback,
+        usePrimaryActionButton = false,
+      )
+    }
+  }
+}
+
+@Composable
+private fun ReadinessStatusRow(
+  label: String,
+  status: OperationalReadiness,
+  badgeTestTag: String,
+) {
+  val style =
+    when (status) {
+      OperationalReadiness.NOT_CONFIGURED ->
+        ReadinessBadgeStyle(
+          icon = Icons.Filled.PauseCircleOutline,
+          label = stringResource(R.string.status_not_configured),
+          container = MaterialTheme.colorScheme.surfaceContainerHighest,
+          content = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+      OperationalReadiness.CONFIGURED_ACTION_NEEDED ->
+        ReadinessBadgeStyle(
+          icon = Icons.Filled.Warning,
+          label = stringResource(R.string.status_configured_action_needed),
+          container = MaterialTheme.colorScheme.tertiaryContainer,
+          content = MaterialTheme.colorScheme.onTertiaryContainer,
+        )
+      OperationalReadiness.ENABLED_NOT_OPERATIONAL ->
+        ReadinessBadgeStyle(
+          icon = Icons.Filled.Warning,
+          label = stringResource(R.string.status_enabled_not_operational),
+          container = MaterialTheme.colorScheme.errorContainer,
+          content = MaterialTheme.colorScheme.onErrorContainer,
+        )
+      OperationalReadiness.OPERATIONAL ->
+        ReadinessBadgeStyle(
+          icon = Icons.Filled.CheckCircle,
+          label = stringResource(R.string.status_operational),
+          container = MaterialTheme.colorScheme.primaryContainer,
+          content = MaterialTheme.colorScheme.onPrimaryContainer,
+        )
+      OperationalReadiness.UNAVAILABLE ->
+        ReadinessBadgeStyle(
+          icon = Icons.Filled.ErrorOutline,
+          label = stringResource(R.string.status_unavailable),
+          container = MaterialTheme.colorScheme.errorContainer,
+          content = MaterialTheme.colorScheme.onErrorContainer,
+        )
+    }
+
+  Row(
+    modifier = Modifier.fillMaxWidth(),
+    verticalAlignment = Alignment.CenterVertically,
+    horizontalArrangement = Arrangement.SpaceBetween,
+  ) {
+    Text(
+      text = label,
+      style = MaterialTheme.typography.bodyMedium,
+      color = MaterialTheme.colorScheme.onSurface,
+      modifier = Modifier.weight(1f).padding(end = 8.dp),
+    )
+    MizanStatusBadge(
+      icon = style.icon,
+      label = style.label,
+      containerColor = style.container,
+      contentColor = style.content,
+      modifier = Modifier.testTag(badgeTestTag),
+    )
+  }
+}
+
+private data class ReadinessBadgeStyle(
+  val icon: ImageVector,
+  val label: String,
+  val container: Color,
+  val content: Color,
+)
 
 @Composable
 private fun DraftStatusCard(
@@ -473,11 +653,18 @@ private fun DraftStatusCard(
       color = MaterialTheme.colorScheme.onSurface,
     )
     Text(
-      text = stringResource(R.string.dashboard_draft_body),
+      text =
+        "${modeShortLabel(draft.rules.mode)} · ${draft.rules.restrictedApps.size} apps · " +
+          "${draft.rules.allowedApps.size} allowed",
       style = MaterialTheme.typography.bodyMedium,
       color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
-    RulesSummaryBlock(rules = draft.rules)
+    MizanExpandableSection(
+      title = stringResource(R.string.disclosure_active_rules),
+      testTag = "dashboard_draft_rules_toggle",
+    ) {
+      RulesSummaryBlock(rules = draft.rules)
+    }
     Row(
       modifier = Modifier.fillMaxWidth(),
       horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -527,34 +714,13 @@ private fun ActiveCommitmentCard(
       modifier = Modifier.testTag("dashboard_active_status_badge"),
     )
 
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-      Text(
-        text = "Started: ${WallClockFormatting.formatDateTime(active.activatedAt)}",
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurface,
-      )
-      Text(
-        text = "Ends: ${WallClockFormatting.formatDateTime(active.endsAt)}",
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurface,
-      )
-    }
-
     val reducedMotion = LocalMizanReducedMotion.current
-    val totalMs = (active.endsAt.epochMillis - active.activatedAt.epochMillis).coerceAtLeast(1L)
-    val nowMs = System.currentTimeMillis()
-    val elapsedFractionTarget =
-      if (activeState.hasReachedEnd) 1f
-      else ((nowMs - active.activatedAt.epochMillis).toFloat() / totalMs.toFloat()).coerceIn(0.02f, 1f)
     val animatedElapsed by
       animateFloatAsState(
-        targetValue = elapsedFractionTarget,
+        targetValue = if (activeState.hasReachedEnd) 1f else activeState.elapsedProgressFraction,
         animationSpec = tween(durationMillis = if (reducedMotion) 0 else 420),
         label = "commitment_7day_progress",
       )
-    val elapsedDays =
-      (((nowMs - active.activatedAt.epochMillis).coerceAtLeast(0L)) / (24L * 60L * 60L * 1000L)).toInt() + 1
-    val boundedDay = elapsedDays.coerceIn(1, 7)
 
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
       Text(
@@ -564,11 +730,11 @@ private fun ActiveCommitmentCard(
           } else {
             stringResource(
               R.string.dashboard_progress_days_format,
-              boundedDay,
-              "${(7 - boundedDay).coerceAtLeast(0)}d",
+              activeState.currentDayOfSeven,
+              activeState.remainingDurationLabel,
             )
           },
-        style = MaterialTheme.typography.labelMedium,
+        style = MaterialTheme.typography.titleSmall,
         color = MaterialTheme.colorScheme.primary,
         modifier = Modifier.testTag("dashboard_active_progress_label"),
       )
@@ -579,14 +745,30 @@ private fun ActiveCommitmentCard(
             .clip(RoundedCornerShape(4.dp))
             .testTag("dashboard_active_progress_bar"),
       )
+      Text(
+        text =
+          "${modeShortLabel(active.rules.mode)} · Ends ${WallClockFormatting.formatDateTime(active.endsAt)}",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+      )
     }
-
-    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-    RulesSummaryBlock(rules = active.rules)
 
     if (active.rules.mode == RestrictionMode.HYBRID) {
       HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
       HybridAllowanceSection(activeState = activeState)
+    }
+
+    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+    MizanExpandableSection(
+      title = stringResource(R.string.disclosure_active_rules),
+      testTag = "dashboard_active_rules_toggle",
+    ) {
+      Text(
+        text = "Started: ${WallClockFormatting.formatDateTime(active.activatedAt)}",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+      )
+      RulesSummaryBlock(rules = active.rules)
     }
 
     if (activeState.hasReachedEnd) {
@@ -808,7 +990,7 @@ private fun TerminatedStatusCard(
     )
     Text(
       text =
-        "Terminated: ${WallClockFormatting.formatDateTime(terminated.terminatedAt)}\n" +
+        "Terminated: ${WallClockFormatting.formatDateTime(terminated.terminatedAt)} · " +
           "Planned end: ${WallClockFormatting.formatDateTime(terminated.plannedEndsAt)}",
       style = MaterialTheme.typography.bodySmall,
       color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -839,7 +1021,10 @@ private fun HistorySummaryCard(commitment: Commitment) {
       is Commitment.Draft ->
         "Draft · ${WallClockFormatting.formatDate(commitment.createdAt.date)}"
     }
-  MizanSurfaceCard(modifier = Modifier.testTag("dashboard_history_item_${commitment.id.value}")) {
+  MizanSurfaceCard(
+    modifier = Modifier.testTag("dashboard_history_item_${commitment.id.value}"),
+    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+  ) {
     Text(
       text = label,
       style = MaterialTheme.typography.titleSmall,
@@ -847,13 +1032,20 @@ private fun HistorySummaryCard(commitment: Commitment) {
     )
     Text(
       text =
-        "Mode: ${commitment.rules.mode.name.lowercase().replaceFirstChar { it.uppercase() }} · " +
+        "${modeShortLabel(commitment.rules.mode)} · " +
           "${commitment.rules.restrictedApps.size} restricted · ${commitment.rules.allowedApps.size} allowlisted",
       style = MaterialTheme.typography.bodySmall,
       color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
   }
 }
+
+private fun modeShortLabel(mode: RestrictionMode): String =
+  when (mode) {
+    RestrictionMode.STRICT -> "Strict"
+    RestrictionMode.SCHEDULED -> "Scheduled"
+    RestrictionMode.HYBRID -> "Hybrid"
+  }
 
 @Composable
 internal fun RulesSummaryBlock(rules: CommitmentRules) {
@@ -935,6 +1127,16 @@ internal fun RulesSummaryBlock(rules: CommitmentRules) {
         color = MaterialTheme.colorScheme.onSurfaceVariant,
       )
     }
+    Text(
+      text =
+        if (rules.blockYouTubeShorts) {
+          "YouTube Shorts restriction: Enabled (normal YouTube allowed)"
+        } else {
+          "YouTube Shorts restriction: Off"
+        },
+      style = MaterialTheme.typography.bodySmall,
+      color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
     Text(
       text =
         if (rules.requirePinForEmergencyTermination) {

@@ -10,29 +10,27 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Palette
-import androidx.compose.material.icons.outlined.Schedule
-import androidx.compose.material.icons.outlined.Security
-import androidx.compose.material.icons.outlined.Sync
-import androidx.compose.material.icons.outlined.Wifi
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.width
-import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.outlined.Replay
-import androidx.compose.material3.Button
+import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material.icons.outlined.Sync
+import androidx.compose.material.icons.outlined.Tune
+import androidx.compose.material.icons.outlined.Wifi
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -66,16 +64,17 @@ import com.example.core.designsystem.component.AccessibilityHealthCard
 import com.example.core.designsystem.component.BatteryOptimizationCard
 import com.example.core.designsystem.component.ContextualGuideSheet
 import com.example.core.designsystem.component.ContextualHelpButton
-import com.example.core.designsystem.component.MizanScopeNoticeCard
+import com.example.core.designsystem.component.MizanExpandableSection
+import com.example.core.designsystem.component.MizanSectionHeader
 import com.example.core.designsystem.component.MizanStatusBadge
 import com.example.core.designsystem.component.MizanSurfaceCard
 import com.example.core.designsystem.component.UsageAccessCard
 import com.example.core.designsystem.component.VpnFilterHealthCard
 import com.example.data.filter.SignedLocalDatasetImporter
 import com.example.domain.model.DatasetAvailabilityStatus
-import com.example.domain.model.DatasetStatusEvaluator
 import com.example.domain.model.DomainCategory
 import com.example.domain.model.ThemePreference
+import com.example.feature.commitments.YouTubeShortsSetupCard
 import com.example.feature.guide.ContextualGuideCatalog
 import com.example.feature.guide.ContextualGuideContext
 import java.io.ByteArrayOutputStream
@@ -89,6 +88,7 @@ import kotlinx.coroutines.withContext
 fun SettingsRoute(
   onRevisitOnboarding: () -> Unit,
   modifier: Modifier = Modifier,
+  onNavigateToSetup: () -> Unit = {},
   onOpenUserGuide: (sectionId: String?, walkthroughMode: Boolean) -> Unit = { _, _ -> },
   viewModel: SettingsViewModel = hiltViewModel(),
 ) {
@@ -149,6 +149,7 @@ fun SettingsRoute(
     onSelectTheme = viewModel::setThemePreference,
     onToggleWifiOnly = viewModel::setWifiOnlyFilterUpdates,
     onRevisitOnboarding = onRevisitOnboarding,
+    onNavigateToSetup = onNavigateToSetup,
     onOpenAccessibilitySettings = {
       settingsLaunchError = null
       val started = runCatching { context.startActivity(viewModel.createAccessibilitySettingsIntent()) }.isSuccess
@@ -229,6 +230,7 @@ fun SettingsRoute(
       viewModel.replayFirstUseWalkthrough()
       onOpenUserGuide(null, true)
     },
+    onToggleYouTubeShorts = viewModel::setYouTubeShortsBlocked,
     onToggleReduceMotion = viewModel::setReduceGuideAnimations,
     modifier = modifier,
   )
@@ -241,6 +243,7 @@ fun SettingsScreen(
   onToggleWifiOnly: (Boolean) -> Unit,
   onRevisitOnboarding: () -> Unit,
   modifier: Modifier = Modifier,
+  onNavigateToSetup: () -> Unit = {},
   onOpenAccessibilitySettings: () -> Unit = {},
   settingsLaunchError: String? = null,
   onOpenUsageAccessSettings: () -> Unit = {},
@@ -266,6 +269,7 @@ fun SettingsScreen(
   appInfoLaunchError: String? = null,
   onOpenUserGuide: (sectionId: String?, walkthroughMode: Boolean) -> Unit = { _, _ -> },
   onReplayWalkthrough: () -> Unit = {},
+  onToggleYouTubeShorts: (Boolean) -> Unit = {},
   onToggleReduceMotion: (Boolean) -> Unit = {},
 ) {
   var activeHelpContext by remember { mutableStateOf<ContextualGuideContext?>(null) }
@@ -285,11 +289,11 @@ fun SettingsScreen(
   Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
     LazyColumn(
       modifier = Modifier.fillMaxWidth().widthIn(max = 640.dp).testTag("settings_screen_list"),
-      contentPadding = PaddingValues(horizontal = 20.dp, vertical = 20.dp),
-      verticalArrangement = Arrangement.spacedBy(16.dp),
+      contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
+      verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
       item {
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
           Text(
             text = stringResource(R.string.settings_headline),
             style = MaterialTheme.typography.headlineSmall,
@@ -333,153 +337,57 @@ fun SettingsScreen(
             }
           }
 
+          // Domain 1 & 2: System Health (Accessibility, Usage Access, Battery)
           item {
-            MizanSurfaceCard(modifier = Modifier.testTag("settings_help_guide_card")) {
-              Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-              ) {
-                Icon(
-                  imageVector = Icons.AutoMirrored.Outlined.MenuBook,
-                  contentDescription = null,
-                  tint = MaterialTheme.colorScheme.primary,
-                  modifier = Modifier.size(22.dp),
-                )
-                Text(
-                  text = stringResource(R.string.settings_help_guide_title),
-                  style = MaterialTheme.typography.titleMedium,
-                  color = MaterialTheme.colorScheme.onSurface,
-                )
-              }
-              Text(
-                text = stringResource(R.string.settings_help_guide_body),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-              )
-              Button(
-                onClick = { onOpenUserGuide(null, false) },
-                modifier =
-                  Modifier.fillMaxWidth()
-                    .minimumInteractiveComponentSize()
-                    .heightIn(min = 48.dp)
-                    .testTag("settings_open_guide_button"),
-              ) {
-                Icon(
-                  imageVector = Icons.AutoMirrored.Outlined.MenuBook,
-                  contentDescription = null,
-                  modifier = Modifier.size(18.dp),
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(text = stringResource(R.string.settings_open_guide_button))
-              }
-              OutlinedButton(
-                onClick = onReplayWalkthrough,
-                modifier =
-                  Modifier.fillMaxWidth()
-                    .minimumInteractiveComponentSize()
-                    .heightIn(min = 48.dp)
-                    .testTag("settings_replay_walkthrough_button"),
-              ) {
-                Icon(
-                  imageVector = Icons.Outlined.Replay,
-                  contentDescription = null,
-                  modifier = Modifier.size(18.dp),
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(text = stringResource(R.string.guide_replay_walkthrough_button))
-              }
-              HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-              Row(
-                modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {},
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-              ) {
-                Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-                  Text(
-                    text = stringResource(R.string.settings_reduce_motion_label),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                  )
-                  Text(
-                    text = stringResource(R.string.settings_reduce_motion_note),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                  )
-                }
-                Switch(
-                  checked = summary.preferences.reduceGuideAnimations,
-                  onCheckedChange = onToggleReduceMotion,
-                  modifier =
-                    Modifier.minimumInteractiveComponentSize()
-                      .testTag("settings_reduce_motion_switch"),
-                )
-              }
-            }
-          }
-
-          item {
-            MizanSurfaceCard(modifier = Modifier.testTag("settings_theme_card")) {
-              Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-              ) {
-                Icon(
-                  imageVector = Icons.Outlined.Palette,
-                  contentDescription = stringResource(R.string.cd_theme_icon),
-                  tint = MaterialTheme.colorScheme.primary,
-                  modifier = Modifier.size(22.dp),
-                )
-                Text(
-                  text = stringResource(R.string.settings_theme_title),
-                  style = MaterialTheme.typography.titleMedium,
-                  color = MaterialTheme.colorScheme.onSurface,
-                )
-              }
-
-              val options = ThemePreference.entries
-              SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                options.forEachIndexed { index, option ->
-                  val label =
-                    when (option) {
-                      ThemePreference.SYSTEM -> stringResource(R.string.settings_theme_system)
-                      ThemePreference.LIGHT -> stringResource(R.string.settings_theme_light)
-                      ThemePreference.DARK -> stringResource(R.string.settings_theme_dark)
-                    }
-                  SegmentedButton(
-                    selected = summary.preferences.themePreference == option,
-                    onClick = { onSelectTheme(option) },
-                    shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size),
-                    modifier =
-                      Modifier.minimumInteractiveComponentSize()
-                        .testTag("settings_theme_${option.name.lowercase()}"),
-                  ) {
-                    Text(text = label)
-                  }
-                }
-              }
-            }
-          }
-
-          item {
-            AccountabilityPinSettingsCard(
-              pinState = summary.pinState,
-              onCurrentPinChange = onCurrentPinChange,
-              onNewPinChange = onNewPinChange,
-              onSavePin = onSavePin,
-              onRemovePin = onRemovePin,
-              onShowHelp = { activeHelpContext = ContextualGuideContext.SETTINGS_SECURITY },
+            MizanSectionHeader(
+              title = stringResource(R.string.settings_domain_system_health),
+              modifier = Modifier.testTag("settings_section_system_health"),
             )
           }
 
           item {
-            VoluntaryRemovalRequestCard(
-              removalState = summary.removalState,
-              onRequestRemoval = onRequestRemoval,
-              onCancelRemoval = onCancelRemoval,
-              onExecuteRemoval = onExecuteRemoval,
-              onOpenAppInfo = onOpenAppInfo,
-              appInfoError = appInfoLaunchError,
-              onShowHelp = { activeHelpContext = ContextualGuideContext.SETTINGS_SECURITY },
+            AccessibilityHealthCard(
+              healthSnapshot = summary.healthSnapshot,
+              onOpenAccessibilitySettings = onOpenAccessibilitySettings,
+              testTagPrefix = "settings_health",
+              settingsLaunchError = settingsLaunchError,
+            )
+          }
+
+          item {
+            UsageAccessCard(
+              usageAccessSnapshot = summary.usageAccessSnapshot,
+              onOpenUsageAccessSettings = onOpenUsageAccessSettings,
+              testTagPrefix = "settings_usage_access",
+              settingsLaunchError = usageSettingsLaunchError,
+            )
+          }
+
+          item {
+            BatteryOptimizationCard(
+              batterySnapshot = summary.batteryOptimizationSnapshot,
+              onOpenBatterySettings = onOpenBatterySettings,
+              testTagPrefix = "settings_battery_optimization",
+              settingsLaunchError = batterySettingsLaunchError,
+            )
+          }
+
+          // Domain 3: Website Protection (Local VPN + Datasets)
+          item {
+            MizanSectionHeader(
+              title = stringResource(R.string.settings_domain_website),
+              modifier = Modifier.testTag("settings_section_website"),
+            )
+          }
+
+          item {
+            VpnFilterHealthCard(
+              vpnSnapshot = summary.vpnFilterSnapshot,
+              onConsentChanged = onVpnConsentChanged,
+              onEnableAndStartVpn = onEnableAndStartVpn,
+              onStopVpn = onStopVpn,
+              testTagPrefix = "settings_vpn_filter",
+              actionFeedback = vpnActionFeedback,
             )
           }
 
@@ -532,26 +440,32 @@ fun SettingsScreen(
                       .testTag("settings_wifi_only_switch"),
                 )
               }
-              Text(
-                text = stringResource(R.string.settings_filter_wifi_only_note),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-              )
+              MizanExpandableSection(
+                title = stringResource(R.string.disclosure_show_details),
+                testTag = "settings_dataset_policy_toggle",
+              ) {
+                Text(
+                  text = stringResource(R.string.settings_filter_wifi_only_note),
+                  style = MaterialTheme.typography.bodySmall,
+                  color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+              }
+
               val displayItems =
                 if (summary.datasetItems.isNotEmpty()) {
                   summary.datasetItems
                 } else {
-                  val nowMs = System.currentTimeMillis()
                   summary.datasets.map { meta ->
                     DatasetManagementItem(
                       metadata = meta,
                       availabilityStatus =
-                        DatasetStatusEvaluator.evaluate(
-                          metadata = meta,
-                          isUpdating =
-                            meta.datasetId in summary.datasetSyncSnapshot.updatingDatasetIds,
-                          nowEpochMillis = nowMs,
-                        ),
+                        if (meta.datasetId in summary.datasetSyncSnapshot.updatingDatasetIds) {
+                          DatasetAvailabilityStatus.UPDATING
+                        } else if (meta.isUsable) {
+                          DatasetAvailabilityStatus.AVAILABLE
+                        } else {
+                          DatasetAvailabilityStatus.UNAVAILABLE
+                        },
                     )
                   }
                 }
@@ -613,38 +527,56 @@ fun SettingsScreen(
                 )
               }
 
-              Text(
-                text = stringResource(R.string.settings_dataset_limitations_note),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.testTag("settings_dataset_limitations_note"),
-              )
+              MizanExpandableSection(
+                title = stringResource(R.string.disclosure_dns_limits),
+                testTag = "settings_dataset_limitations_toggle",
+              ) {
+                Text(
+                  text = stringResource(R.string.settings_dataset_limitations_note),
+                  style = MaterialTheme.typography.bodySmall,
+                  color = MaterialTheme.colorScheme.onSurfaceVariant,
+                  modifier = Modifier.testTag("settings_dataset_limitations_note"),
+                )
+              }
             }
           }
 
+          // Domain 4: Commitment, Schedule & Allowance
           item {
-            MizanSurfaceCard(modifier = Modifier.testTag("settings_privacy_card")) {
+            MizanSectionHeader(
+              title = stringResource(R.string.settings_domain_commitment),
+              modifier = Modifier.testTag("settings_section_commitment"),
+            )
+          }
+
+          item {
+            MizanSurfaceCard(modifier = Modifier.testTag("settings_commitment_card")) {
               Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
               ) {
                 Icon(
-                  imageVector = Icons.Outlined.Lock,
-                  contentDescription = stringResource(R.string.cd_privacy_icon),
+                  imageVector = Icons.Outlined.Tune,
+                  contentDescription = null,
                   tint = MaterialTheme.colorScheme.primary,
                   modifier = Modifier.size(22.dp),
                 )
                 Text(
-                  text = stringResource(R.string.settings_privacy_title),
+                  text = stringResource(R.string.settings_domain_commitment),
                   style = MaterialTheme.typography.titleMedium,
                   color = MaterialTheme.colorScheme.onSurface,
                 )
               }
-              Text(
-                text = stringResource(R.string.settings_privacy_body),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-              )
+              OutlinedButton(
+                onClick = onNavigateToSetup,
+                modifier =
+                  Modifier.fillMaxWidth()
+                    .minimumInteractiveComponentSize()
+                    .heightIn(min = 48.dp)
+                    .testTag("settings_open_setup_button"),
+              ) {
+                Text(text = stringResource(R.string.settings_open_setup_button))
+              }
               OutlinedButton(
                 onClick = onRevisitOnboarding,
                 modifier =
@@ -659,70 +591,177 @@ fun SettingsScreen(
           }
 
           item {
-            AccessibilityHealthCard(
+            YouTubeShortsSetupCard(
+              blockYouTubeShorts = summary.youtubeShortsBlocked,
               healthSnapshot = summary.healthSnapshot,
+              onToggleBlockYouTubeShorts = onToggleYouTubeShorts,
               onOpenAccessibilitySettings = onOpenAccessibilitySettings,
-              testTagPrefix = "settings_health",
-              settingsLaunchError = settingsLaunchError,
+              isLocked = summary.youtubeShortsRuleLocked,
+              statusNoteOverride = stringResource(R.string.settings_youtube_shorts_draft_note),
+              testTagPrefix = "settings_youtube_shorts",
+            )
+          }
+
+          // Domain 5: Security (PIN + 24-Hour Voluntary Removal)
+          item {
+            MizanSectionHeader(
+              title = stringResource(R.string.settings_domain_security),
+              modifier = Modifier.testTag("settings_section_security"),
             )
           }
 
           item {
-            UsageAccessCard(
-              usageAccessSnapshot = summary.usageAccessSnapshot,
-              onOpenUsageAccessSettings = onOpenUsageAccessSettings,
-              testTagPrefix = "settings_usage_access",
-              settingsLaunchError = usageSettingsLaunchError,
+            AccountabilityPinSettingsCard(
+              pinState = summary.pinState,
+              onCurrentPinChange = onCurrentPinChange,
+              onNewPinChange = onNewPinChange,
+              onSavePin = onSavePin,
+              onRemovePin = onRemovePin,
+              onShowHelp = { activeHelpContext = ContextualGuideContext.SETTINGS_SECURITY },
             )
           }
 
           item {
-            BatteryOptimizationCard(
-              batterySnapshot = summary.batteryOptimizationSnapshot,
-              onOpenBatterySettings = onOpenBatterySettings,
-              testTagPrefix = "settings_battery_optimization",
-              settingsLaunchError = batterySettingsLaunchError,
+            VoluntaryRemovalRequestCard(
+              removalState = summary.removalState,
+              onRequestRemoval = onRequestRemoval,
+              onCancelRemoval = onCancelRemoval,
+              onExecuteRemoval = onExecuteRemoval,
+              onOpenAppInfo = onOpenAppInfo,
+              appInfoError = appInfoLaunchError,
+              onShowHelp = { activeHelpContext = ContextualGuideContext.SETTINGS_SECURITY },
+            )
+          }
+
+          // Domain 6 & 7: Preferences & Reference (Theme, Guide, Motion, App & Scope Info)
+          item {
+            MizanSectionHeader(
+              title = stringResource(R.string.settings_domain_preferences),
+              modifier = Modifier.testTag("settings_section_preferences"),
             )
           }
 
           item {
-            VpnFilterHealthCard(
-              vpnSnapshot = summary.vpnFilterSnapshot,
-              onConsentChanged = onVpnConsentChanged,
-              onEnableAndStartVpn = onEnableAndStartVpn,
-              onStopVpn = onStopVpn,
-              testTagPrefix = "settings_vpn_filter",
-              actionFeedback = vpnActionFeedback,
-            )
-          }
-
-          item {
-            MizanSurfaceCard(modifier = Modifier.testTag("settings_permissions_card")) {
+            MizanSurfaceCard(modifier = Modifier.testTag("settings_theme_card")) {
               Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
               ) {
                 Icon(
-                  imageVector = Icons.Outlined.Security,
-                  contentDescription = stringResource(R.string.cd_permissions_icon),
-                  tint = MaterialTheme.colorScheme.tertiary,
+                  imageVector = Icons.Outlined.Palette,
+                  contentDescription = stringResource(R.string.cd_theme_icon),
+                  tint = MaterialTheme.colorScheme.primary,
                   modifier = Modifier.size(22.dp),
                 )
                 Text(
-                  text = stringResource(R.string.settings_permissions_title),
+                  text = stringResource(R.string.settings_theme_title),
                   style = MaterialTheme.typography.titleMedium,
                   color = MaterialTheme.colorScheme.onSurface,
                 )
               }
-              Text(
-                text = stringResource(R.string.settings_permissions_body),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-              )
+
+              val options = ThemePreference.entries
+              SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                options.forEachIndexed { index, option ->
+                  val label =
+                    when (option) {
+                      ThemePreference.SYSTEM -> stringResource(R.string.settings_theme_system)
+                      ThemePreference.LIGHT -> stringResource(R.string.settings_theme_light)
+                      ThemePreference.DARK -> stringResource(R.string.settings_theme_dark)
+                    }
+                  SegmentedButton(
+                    selected = summary.preferences.themePreference == option,
+                    onClick = { onSelectTheme(option) },
+                    shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size),
+                    modifier =
+                      Modifier.minimumInteractiveComponentSize()
+                        .testTag("settings_theme_${option.name.lowercase()}"),
+                  ) {
+                    Text(text = label)
+                  }
+                }
+              }
             }
           }
 
-          item { MizanScopeNoticeCard() }
+          item {
+            MizanSurfaceCard(modifier = Modifier.testTag("settings_help_guide_card")) {
+              Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+              ) {
+                Icon(
+                  imageVector = Icons.AutoMirrored.Outlined.MenuBook,
+                  contentDescription = null,
+                  tint = MaterialTheme.colorScheme.primary,
+                  modifier = Modifier.size(22.dp),
+                )
+                Text(
+                  text = stringResource(R.string.settings_help_guide_title),
+                  style = MaterialTheme.typography.titleMedium,
+                  color = MaterialTheme.colorScheme.onSurface,
+                )
+              }
+              OutlinedButton(
+                onClick = { onOpenUserGuide(null, false) },
+                modifier =
+                  Modifier.fillMaxWidth()
+                    .minimumInteractiveComponentSize()
+                    .heightIn(min = 48.dp)
+                    .testTag("settings_open_guide_button"),
+              ) {
+                Icon(
+                  imageVector = Icons.AutoMirrored.Outlined.MenuBook,
+                  contentDescription = null,
+                  modifier = Modifier.size(18.dp),
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(text = stringResource(R.string.settings_open_guide_button))
+              }
+              OutlinedButton(
+                onClick = onReplayWalkthrough,
+                modifier =
+                  Modifier.fillMaxWidth()
+                    .minimumInteractiveComponentSize()
+                    .heightIn(min = 48.dp)
+                    .testTag("settings_replay_walkthrough_button"),
+              ) {
+                Icon(
+                  imageVector = Icons.Outlined.Replay,
+                  contentDescription = null,
+                  modifier = Modifier.size(18.dp),
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(text = stringResource(R.string.guide_replay_walkthrough_button))
+              }
+              HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+              Row(
+                modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {},
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+              ) {
+                Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                  Text(
+                    text = stringResource(R.string.settings_reduce_motion_label),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                  )
+                  Text(
+                    text = stringResource(R.string.settings_reduce_motion_note),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                  )
+                }
+                Switch(
+                  checked = summary.preferences.reduceGuideAnimations,
+                  onCheckedChange = onToggleReduceMotion,
+                  modifier =
+                    Modifier.minimumInteractiveComponentSize()
+                      .testTag("settings_reduce_motion_switch"),
+                )
+              }
+            }
+          }
 
           item {
             MizanSurfaceCard(modifier = Modifier.testTag("settings_build_card")) {
@@ -768,6 +807,24 @@ fun SettingsScreen(
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.testTag("settings_version_text"),
               )
+
+              HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+              MizanExpandableSection(
+                title = stringResource(R.string.disclosure_app_scope_info),
+                testTag = "settings_privacy_details_toggle",
+              ) {
+                Text(
+                  text = stringResource(R.string.settings_privacy_body),
+                  style = MaterialTheme.typography.bodySmall,
+                  color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                  text = stringResource(R.string.status_not_active_notice_body),
+                  style = MaterialTheme.typography.bodySmall,
+                  color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+              }
             }
           }
         }
@@ -930,4 +987,3 @@ private fun readBoundedDocumentBytes(
     output.toByteArray()
   }
 }
-

@@ -35,8 +35,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.R
 import com.example.core.designsystem.component.ContextualGuideSheet
 import com.example.core.designsystem.component.ContextualHelpButton
+import com.example.core.designsystem.component.MizanExpandableSection
 import com.example.core.designsystem.component.MizanFlowTopBar
-import com.example.core.designsystem.component.MizanSlideDeck
 import com.example.core.designsystem.component.MizanSurfaceCard
 import com.example.core.time.WallClockFormatting
 import com.example.feature.guide.ContextualGuideCatalog
@@ -204,19 +204,23 @@ fun CommitmentReviewScreen(
           }
 
           item {
-            Text(
-              text = stringResource(R.string.review_limitations_slides_title),
-              style = MaterialTheme.typography.titleSmall,
-              color = MaterialTheme.colorScheme.onBackground,
-            )
-          }
-
-          item {
-            MizanSlideDeck(
-              slides = ContextualGuideCatalog.reviewLimitationsSlides,
-              testTagPrefix = "review_limitations_slides_deck",
-              compactVisualPadding = true,
-            )
+            MizanSurfaceCard(modifier = Modifier.testTag("review_limitations_card")) {
+              MizanExpandableSection(
+                title = stringResource(R.string.onboarding_review_limits_toggle),
+                testTag = "review_limitations_toggle",
+              ) {
+                Text(
+                  text = stringResource(R.string.onboarding_perm_a11y_short),
+                  style = MaterialTheme.typography.bodySmall,
+                  color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                  text = stringResource(R.string.vpn_disclosure_body),
+                  style = MaterialTheme.typography.bodySmall,
+                  color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+              }
+            }
           }
 
           if (uiState.hasActiveCommitmentConflict) {

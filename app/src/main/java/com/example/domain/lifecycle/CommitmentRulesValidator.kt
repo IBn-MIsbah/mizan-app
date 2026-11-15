@@ -76,7 +76,7 @@ object CommitmentRulesValidator {
         (rules.blockedDomains.any { it.ruleType == DomainRuleType.BLOCK } ||
           rules.blockedDomainCategories.isNotEmpty())
 
-    if (rules.restrictedApps.isEmpty() && !hasWebsiteTargets) {
+    if (rules.restrictedApps.isEmpty() && !hasWebsiteTargets && !rules.blockYouTubeShorts) {
       errors += RulesValidationError.RestrictedAppsRequired
     }
 

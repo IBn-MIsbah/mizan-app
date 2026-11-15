@@ -16,6 +16,8 @@ import com.example.domain.repository.DailyUsageRepository
 import com.example.domain.repository.PersistenceResult
 import com.example.domain.repository.SecurityEventRepository
 import com.example.domain.time.TimeProvider
+import com.example.platform.accessibility.AccessibilityNodeSnapshot
+import com.example.platform.accessibility.YouTubeShortsDetector
 import com.example.platform.health.EnforcementHealthMonitor
 import com.example.platform.usage.ForegroundUsageTracker
 import com.example.platform.usage.SessionEndReason
@@ -62,6 +64,8 @@ constructor(
   private val usageReconciler: UsageStatsReconciler,
   private val dispatcherProvider: DispatcherProvider,
   @param:AppPackageName private val ownPackageName: String,
+  private val youtubeShortsFeedbackDisplayer: YouTubeShortsFeedbackDisplayer =
+    NoOpYouTubeShortsFeedbackDisplayer,
 ) {
 
   private val mutex = Mutex()
@@ -71,6 +75,7 @@ constructor(
 
   private var lastBlockedPackage: String? = null
   private var lastBlockLaunchedMonotonicMs: Long = Long.MIN_VALUE
+  private val youtubeShortsStateMachine = YouTubeShortsEnforcementStateMachine()
 
   init {
     usageTracker.setOnAllowanceExhaustedListener { exhaustedPackage ->
@@ -92,12 +97,14 @@ constructor(
                 healthMonitor.setRuleStateAvailable(true)
                 if (result.data !is Commitment.Active) {
                   clearDebounceStateLockedSafely()
+                  youtubeShortsStateMachine.reset()
                   usageTracker.closeActiveSession(SessionEndReason.COMMITMENT_ENDED)
                 }
               }
               is PersistenceResult.Failure -> {
                 ruleCache.value = CachedRuleSnapshot.Unavailable
                 healthMonitor.setRuleStateAvailable(false)
+                youtubeShortsStateMachine.reset()
                 usageTracker.closeActiveSession(SessionEndReason.COMMITMENT_ENDED)
               }
             }
@@ -156,17 +163,36 @@ constructor(
     observerJob = null
     observerScope = null
     ruleCache.value = CachedRuleSnapshot.Uninitialized
+    youtubeShortsStateMachine.reset()
     resetDebounce()
   }
 
   suspend fun onDeviceInteractiveEnded(reason: SessionEndReason = SessionEndReason.SCREEN_OFF) {
     usageTracker.closeActiveSession(reason)
+    youtubeShortsStateMachine.reset()
     resetDebounce()
   }
 
   fun resetDebounce() {
     lastBlockedPackage = null
     lastBlockLaunchedMonotonicMs = Long.MIN_VALUE
+  }
+
+  fun currentShortsEnforcementState(): YouTubeShortsEnforcementState =
+    youtubeShortsStateMachine.state
+
+  /**
+   * Fast in-memory gate used by [AppRestrictionAccessibilityService] so accessibility window trees
+   * are never captured when YouTube Shorts restriction is inactive, disabled, or YouTube is
+   * allowlisted.
+   */
+  fun shouldInspectYouTubeShortsNow(): Boolean {
+    val active = (ruleCache.value as? CachedRuleSnapshot.Loaded)?.commitment as? Commitment.Active
+      ?: return false
+    if (active.hasReachedEnd(timeProvider.currentWallClock())) return false
+    if (!active.rules.blockYouTubeShorts) return false
+    if (active.rules.isAllowlisted(AppId(YouTubeShortsDetector.YOUTUBE_PACKAGE_NAME))) return false
+    return true
   }
 
   suspend fun onForegroundPackageObserved(rawPackageName: String?): RestrictionDecision? {
@@ -253,6 +279,10 @@ constructor(
         healthMonitor.setRuleStateAvailable(false)
       }
 
+      if (packageName != YouTubeShortsDetector.YOUTUBE_PACKAGE_NAME) {
+        youtubeShortsStateMachine.onAppLeftYouTube()
+      }
+
       if (decision.isBlocked) {
         val isDuplicateBurst =
           lastBlockedPackage == packageName &&
@@ -289,6 +319,104 @@ constructor(
       }
 
       decision
+    }
+  }
+
+  /**
+   * Evaluates a bounded snapshot of a YouTube window for an active YouTube Shorts player.
+   *
+   * Returns `true` only when the accessibility service should execute a single
+   * `GLOBAL_ACTION_BACK` to return the user out of Shorts. Never triggers when YouTube Shorts
+   * restriction is off, no commitment is active, YouTube is allowlisted, or YouTube itself is
+   * already blocked as a whole app.
+   */
+  suspend fun onYouTubeWindowObserved(
+    rawPackageName: String?,
+    snapshot: AccessibilityNodeSnapshot?,
+  ): Boolean {
+    val packageName = PackageNameValidator.normalize(rawPackageName)
+    if (packageName != YouTubeShortsDetector.YOUTUBE_PACKAGE_NAME) {
+      youtubeShortsStateMachine.onAppLeftYouTube()
+      return false
+    }
+
+    return mutex.withLock {
+      val commitment = resolveCurrentCommitment()
+      if (commitment !is Commitment.Active) {
+        youtubeShortsStateMachine.reset()
+        return@withLock false
+      }
+
+      val nowWallClock = timeProvider.currentWallClock()
+      val nowMonotonic = timeProvider.currentMonotonic()
+      if (commitment.hasReachedEnd(nowWallClock) || !commitment.rules.blockYouTubeShorts) {
+        youtubeShortsStateMachine.reset()
+        return@withLock false
+      }
+
+      val youtubeAppId = AppId(YouTubeShortsDetector.YOUTUBE_PACKAGE_NAME)
+      if (commitment.rules.isAllowlisted(youtubeAppId)) {
+        youtubeShortsStateMachine.reset()
+        return@withLock false
+      }
+
+      // If YouTube itself is currently blocked as a full app (Strict, active Scheduled window,
+      // or Hybrid allowance exhausted), defer to full-app BlockingActivity instead of Back.
+      if (commitment.rules.isRestricted(youtubeAppId)) {
+        val dailyUsage =
+          if (commitment.rules.mode == RestrictionMode.HYBRID) {
+            when (
+              val res =
+                withContext(dispatcherProvider.io) {
+                  runCatching { dailyUsageRepository.getDailyUsage(commitment.id, nowWallClock.date) }
+                    .getOrNull()
+                }
+            ) {
+              is PersistenceResult.Success -> res.data
+              is PersistenceResult.Failure,
+              null -> {
+                healthMonitor.setRuleStateAvailable(false)
+                youtubeShortsStateMachine.reset()
+                return@withLock false
+              }
+            }
+          } else {
+            null
+          }
+        val appDecision =
+          RestrictionEvaluator.evaluate(
+            commitment = commitment,
+            appId = youtubeAppId,
+            wallClock = nowWallClock,
+            dailyUsage = dailyUsage,
+          )
+        if (appDecision.isBlocked) {
+          youtubeShortsStateMachine.reset()
+          return@withLock false
+        }
+      }
+
+      val detection = YouTubeShortsDetector.detect(packageName, snapshot)
+      when (
+        val action =
+          youtubeShortsStateMachine.onDetectionEvaluated(
+            detection = detection,
+            nowMonotonicMs = nowMonotonic.elapsedMillis,
+          )
+      ) {
+        YouTubeShortsAction.None -> false
+        is YouTubeShortsAction.NavigateBackAndNotify -> {
+          if (action.showFeedback) {
+            youtubeShortsFeedbackDisplayer.showShortsRestrictedFeedback()
+          }
+          withContext(dispatcherProvider.io) {
+            runCatching {
+              dailyUsageRepository.recordBlockedAttempt(commitment.id, nowWallClock.date)
+            }
+          }
+          true
+        }
+      }
     }
   }
 

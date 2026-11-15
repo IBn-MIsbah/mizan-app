@@ -14,9 +14,11 @@ import android.content.pm.ServiceInfo
 import android.provider.Settings
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToNode
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import com.example.MainDispatcherRule
@@ -50,6 +52,7 @@ import com.example.testing.FakeAccountabilityMetadataRepository
 import com.example.testing.FakeCommitmentRepository
 import com.example.testing.FakeDispatcherProvider
 import com.example.testing.FakeDomainFilterRepository
+import com.example.testing.FakeEnforcementHealthMonitor
 import com.example.testing.FakeIdGenerator
 import com.example.testing.FakeInstalledAppRepository
 import com.example.testing.FakeTimeProvider
@@ -85,7 +88,7 @@ class MizanPlatformRobolectricTest {
   private val context: Context = ApplicationProvider.getApplicationContext()
 
   @Test
-  fun `manifest declares accessibility service without window content retrieval and without restricted broad permissions`() {
+  fun `manifest declares accessibility service with minimal Shorts-aware window retrieval and without restricted broad permissions`() {
     val pm = context.packageManager
     val serviceComponent =
       ComponentName(context.packageName, AppRestrictionAccessibilityService::class.java.name)
@@ -99,8 +102,22 @@ class MizanPlatformRobolectricTest {
     assertTrue(xmlResId != 0)
 
     val attrs = readAccessibilityXmlAttributes(xmlResId)
-    assertEquals("false", attrs["canRetrieveWindowContent"])
-    assertEquals("0x20", attrs["accessibilityEventTypes"])
+    assertEquals("true", attrs["canRetrieveWindowContent"])
+    val eventMask = Integer.decode(attrs.getValue("accessibilityEventTypes"))
+    assertEquals(
+      android.view.accessibility.AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or
+        android.view.accessibility.AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED,
+      eventMask,
+    )
+    val flagMask = Integer.decode(attrs.getValue("accessibilityFlags"))
+    assertTrue(
+      (flagMask and android.accessibilityservice.AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS) != 0
+    )
+    assertEquals(
+      0,
+      flagMask and
+        android.accessibilityservice.AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS,
+    )
 
     val pkgInfo =
       pm.getPackageInfo(context.packageName, PackageManager.GET_PERMISSIONS)
@@ -257,6 +274,7 @@ class MizanPlatformRobolectricTest {
         installedAppRepository = FakeInstalledAppRepository(InstalledAppsResult.Success(listOf(installedApp))),
         domainFilterRepository = FakeDomainFilterRepository(),
         accountabilityMetadataRepository = FakeAccountabilityMetadataRepository(),
+        enforcementHealthMonitor = FakeEnforcementHealthMonitor(),
         timeProvider = timeProvider,
         idGenerator = FakeIdGenerator(),
       )
@@ -274,6 +292,9 @@ class MizanPlatformRobolectricTest {
       }
     }
 
+    composeRule
+      .onNodeWithTag("commitments_screen_list")
+      .performScrollToNode(hasTestTag("setup_selected_restricted_com.removed.social"))
     composeRule
       .onNodeWithTag("setup_selected_restricted_com.removed.social")
       .assertTextContains("Not currently installed", substring = true)

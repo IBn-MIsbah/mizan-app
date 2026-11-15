@@ -54,32 +54,46 @@ class MizanFlowsRobolectricTest {
   fun `setup review explicit activation and emergency termination end to end ui flow`() {
     composeTestRule.waitUntilTag("onboarding_screen_list")
 
-    // Complete first-launch onboarding
+    // Complete first-launch onboarding safely via Skip to Balance
     composeTestRule
       .onNodeWithTag("onboarding_screen_list")
-      .performScrollToNode(hasTestTag("onboarding_complete_button"))
-    composeTestRule.onNodeWithTag("onboarding_complete_button").performClick()
+      .performScrollToNode(hasTestTag("onboarding_skip_button"))
+    composeTestRule.onNodeWithTag("onboarding_skip_button").performClick()
 
     // Navigate from Dashboard empty state to Setup
     composeTestRule.waitUntilTag("dashboard_start_setup_button")
     composeTestRule.onNodeWithTag("dashboard_start_setup_button").performClick()
 
-    // Configure Strict mode + test restricted app package
+    // Configure Strict mode + expand manual package entry + add restricted app
     composeTestRule.waitUntilTag("setup_mode_strict")
     composeTestRule.onNodeWithTag("setup_mode_strict").performClick()
     composeTestRule
       .onNodeWithTag("commitments_screen_list")
-      .performScrollToNode(hasTestTag("setup_add_custom_restricted_button"))
-    composeTestRule.onNodeWithTag("setup_custom_restricted_label_input").performTextInput("Sample Social")
+      .performScrollToNode(hasTestTag("setup_custom_restricted_toggle"))
+    composeTestRule.onNodeWithTag("setup_custom_restricted_toggle").performClick()
+    composeTestRule.waitUntilTag("setup_custom_restricted_label_input")
+    composeTestRule
+      .onNodeWithTag("setup_custom_restricted_label_input")
+      .performScrollTo()
+      .performTextInput("Sample Social")
     composeTestRule
       .onNodeWithTag("setup_custom_restricted_package_input")
+      .performScrollTo()
       .performTextInput("com.example.social")
-    composeTestRule.onNodeWithTag("setup_add_custom_restricted_button").performClick()
+    composeTestRule
+      .onNodeWithTag("setup_add_custom_restricted_button")
+      .performScrollTo()
+      .performClick()
+    composeTestRule.waitForIdle()
 
     composeTestRule
       .onNodeWithTag("commitments_screen_list")
       .performScrollToNode(hasTestTag("setup_continue_review_button"))
-    composeTestRule.onNodeWithTag("setup_continue_review_button").performClick()
+    composeTestRule
+      .onNodeWithTag("setup_continue_review_button")
+      .performScrollTo()
+      .performClick()
+    composeTestRule.waitForIdle()
 
     // Review screen: activation disabled until explicit agreement checkbox checked
     composeTestRule.waitUntilTag("review_duration_card")

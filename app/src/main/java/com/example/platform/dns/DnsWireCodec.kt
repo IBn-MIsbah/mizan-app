@@ -54,6 +54,8 @@ object DnsWireCodec {
 
   const val DNS_HEADER_SIZE = 12
   const val MAX_DNS_PACKET_BYTES = 4096
+  const val MAX_TCP_DNS_PACKET_BYTES = 16_384
+  const val MAX_TUN_UDP_DNS_PAYLOAD = 1472
   const val MAX_COMPRESSION_JUMPS = 16
   const val MAX_QNAME_LENGTH = 253
   const val MAX_LABEL_LENGTH = 63
@@ -144,6 +146,17 @@ object DnsWireCodec {
       rcode = RCODE_SERVFAIL,
     )
 
+  fun buildTruncatedResponse(query: ParsedDnsQuery): ByteArray =
+    buildErrorOrEmptyResponse(
+      transactionId = query.transactionId,
+      requestFlags = query.flags,
+      qnameLabels = query.qnameLabels,
+      qtypeCode = query.qtypeCode,
+      qclassCode = query.qclassCode,
+      rcode = RCODE_NOERROR,
+      truncated = true,
+    )
+
   fun buildFormErrResponse(transactionId: Int, requestFlags: Int): ByteArray {
     val out = ByteArray(DNS_HEADER_SIZE)
     writeU16(out, 0, transactionId)
@@ -155,6 +168,12 @@ object DnsWireCodec {
   fun extractTransactionId(packet: ByteArray): Int? =
     if (packet.size >= 2) readU16(packet, 0) else null
 
+  fun isResponsePacket(packet: ByteArray): Boolean =
+    packet.size >= DNS_HEADER_SIZE && (readU16(packet, 2) and 0x8000) != 0
+
+  fun hasTruncatedFlag(packet: ByteArray): Boolean =
+    packet.size >= DNS_HEADER_SIZE && (readU16(packet, 2) and 0x0200) != 0
+
   private fun buildErrorOrEmptyResponse(
     transactionId: Int,
     requestFlags: Int,
@@ -162,6 +181,7 @@ object DnsWireCodec {
     qtypeCode: Int,
     qclassCode: Int,
     rcode: Int,
+    truncated: Boolean = false,
   ): ByteArray {
     val encodedLabels = qnameLabels.map { it.encodeToByteArray() }
     val nameByteLen = encodedLabels.sumOf { 1 + it.size } + 1
@@ -169,7 +189,7 @@ object DnsWireCodec {
     val out = ByteArray(totalSize)
 
     writeU16(out, 0, transactionId)
-    writeU16(out, 2, buildResponseFlags(requestFlags, rcode))
+    writeU16(out, 2, buildResponseFlags(requestFlags, rcode, truncated = truncated))
     writeU16(out, 4, 1) // QDCOUNT = 1
     writeU16(out, 6, 0) // ANCOUNT = 0
     writeU16(out, 8, 0) // NSCOUNT = 0
@@ -187,11 +207,16 @@ object DnsWireCodec {
     return out
   }
 
-  private fun buildResponseFlags(requestFlags: Int, rcode: Int): Int {
+  private fun buildResponseFlags(
+    requestFlags: Int,
+    rcode: Int,
+    truncated: Boolean = false,
+  ): Int {
     val opcode = requestFlags and 0x7800
     val rd = requestFlags and 0x0100
     val ra = 0x0080
-    return 0x8000 or opcode or rd or ra or (rcode and 0x0F)
+    val tc = if (truncated) 0x0200 else 0
+    return 0x8000 or opcode or tc or rd or ra or (rcode and 0x0F)
   }
 
   private fun tryReadEdns0UdpSize(packet: ByteArray, startOffset: Int, arCount: Int): Int? {

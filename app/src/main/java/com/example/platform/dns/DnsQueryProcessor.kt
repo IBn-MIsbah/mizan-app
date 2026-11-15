@@ -7,16 +7,26 @@ import com.example.domain.filter.DomainRuleMatcher
 import com.example.domain.model.Commitment
 import com.example.domain.time.TimeProvider
 
+enum class DnsTransport {
+  UDP,
+  TCP,
+}
+
 interface UpstreamDnsForwarder {
   suspend fun forwardQuery(rawDnsQuery: ByteArray): ByteArray?
+
+  suspend fun forwardQueryTcp(rawDnsQuery: ByteArray): ByteArray? = forwardQuery(rawDnsQuery)
 }
 
 sealed interface DnsProcessOutcome {
   data class BlockedLocally(val responseBytes: ByteArray, val decision: DomainMatchDecision) :
     DnsProcessOutcome
 
-  data class ForwardedUpstream(val responseBytes: ByteArray, val decision: DomainMatchDecision) :
-    DnsProcessOutcome
+  data class ForwardedUpstream(
+    val responseBytes: ByteArray,
+    val decision: DomainMatchDecision,
+    val wasTruncatedForMtu: Boolean = false,
+  ) : DnsProcessOutcome
 
   data class UpstreamFailed(val responseBytes: ByteArray) : DnsProcessOutcome
 
@@ -37,6 +47,8 @@ class DnsQueryProcessor(
     rawDnsQuery: ByteArray,
     commitment: Commitment?,
     compiledRules: CompiledDomainRuleSet,
+    transport: DnsTransport = DnsTransport.UDP,
+    maxUdpResponseBytes: Int = DnsWireCodec.MAX_TUN_UDP_DNS_PAYLOAD,
   ): DnsProcessOutcome {
     val parsed =
       when (val result = DnsWireCodec.parseQuery(rawDnsQuery)) {
@@ -67,15 +79,32 @@ class DnsQueryProcessor(
       )
     }
 
-    val upstreamBytes = upstreamForwarder.forwardQuery(rawDnsQuery)
+    val maxAllowedBytes =
+      if (transport == DnsTransport.TCP) DnsWireCodec.MAX_TCP_DNS_PACKET_BYTES
+      else DnsWireCodec.MAX_DNS_PACKET_BYTES
+    val upstreamBytes =
+      when (transport) {
+        DnsTransport.UDP -> upstreamForwarder.forwardQuery(rawDnsQuery)
+        DnsTransport.TCP -> upstreamForwarder.forwardQueryTcp(rawDnsQuery)
+      }
+
     if (
       upstreamBytes == null ||
         upstreamBytes.size < DnsWireCodec.DNS_HEADER_SIZE ||
-        upstreamBytes.size > DnsWireCodec.MAX_DNS_PACKET_BYTES ||
+        upstreamBytes.size > maxAllowedBytes ||
+        !DnsWireCodec.isResponsePacket(upstreamBytes) ||
         DnsWireCodec.extractTransactionId(upstreamBytes) != parsed.transactionId
     ) {
       return DnsProcessOutcome.UpstreamFailed(
         responseBytes = DnsWireCodec.buildServFailResponse(parsed)
+      )
+    }
+
+    if (transport == DnsTransport.UDP && upstreamBytes.size > maxUdpResponseBytes) {
+      return DnsProcessOutcome.ForwardedUpstream(
+        responseBytes = DnsWireCodec.buildTruncatedResponse(parsed),
+        decision = decision,
+        wasTruncatedForMtu = true,
       )
     }
 

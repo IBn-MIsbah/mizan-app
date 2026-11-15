@@ -16,8 +16,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.PauseCircleOutline
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.outlined.Apps
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.PlayCircle
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
@@ -47,9 +53,13 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.example.R
 import com.example.core.designsystem.component.ContextualHelpButton
+import com.example.core.designsystem.component.MizanExpandableSection
+import com.example.core.designsystem.component.MizanStatusBadge
 import com.example.core.designsystem.component.MizanSurfaceCard
 import com.example.core.time.WallClockFormatting
 import com.example.domain.model.AllowlistCategory
+import com.example.platform.health.EnforcementHealthSnapshot
+import com.example.platform.health.EnforcementHealthStatus
 import com.example.domain.model.AppId
 import com.example.domain.model.InstalledAppInfo
 import com.example.domain.model.RestrictionMode
@@ -228,30 +238,34 @@ internal fun RestrictedAppsSelectionCard(
       }
     }
 
-    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-    OutlinedTextField(
-      value = editor.customRestrictedLabel,
-      onValueChange = onCustomLabelChange,
-      label = { Text(stringResource(R.string.setup_custom_app_label_hint)) },
-      singleLine = true,
-      modifier = Modifier.fillMaxWidth().testTag("setup_custom_restricted_label_input"),
-    )
-    OutlinedTextField(
-      value = editor.customRestrictedPackage,
-      onValueChange = onCustomPackageChange,
-      label = { Text(stringResource(R.string.setup_custom_app_package_hint)) },
-      singleLine = true,
-      modifier = Modifier.fillMaxWidth().testTag("setup_custom_restricted_package_input"),
-    )
-    OutlinedButton(
-      onClick = onAddCustom,
-      modifier =
-        Modifier.fillMaxWidth()
-          .minimumInteractiveComponentSize()
-          .heightIn(min = 48.dp)
-          .testTag("setup_add_custom_restricted_button"),
+    MizanExpandableSection(
+      title = stringResource(R.string.disclosure_custom_app_add),
+      testTag = "setup_custom_restricted_toggle",
     ) {
-      Text(stringResource(R.string.setup_add_restricted_custom))
+      OutlinedTextField(
+        value = editor.customRestrictedLabel,
+        onValueChange = onCustomLabelChange,
+        label = { Text(stringResource(R.string.setup_custom_app_label_hint)) },
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth().testTag("setup_custom_restricted_label_input"),
+      )
+      OutlinedTextField(
+        value = editor.customRestrictedPackage,
+        onValueChange = onCustomPackageChange,
+        label = { Text(stringResource(R.string.setup_custom_app_package_hint)) },
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth().testTag("setup_custom_restricted_package_input"),
+      )
+      OutlinedButton(
+        onClick = onAddCustom,
+        modifier =
+          Modifier.fillMaxWidth()
+            .minimumInteractiveComponentSize()
+            .heightIn(min = 48.dp)
+            .testTag("setup_add_custom_restricted_button"),
+      ) {
+        Text(stringResource(R.string.setup_add_restricted_custom))
+      }
     }
   }
 }
@@ -293,82 +307,87 @@ internal fun AllowlistSelectionCard(
       color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
 
-    if (editor.installedApps.isNotEmpty()) {
-      OutlinedTextField(
-        value = editor.allowlistSearchQuery,
-        onValueChange = onSearchChange,
-        label = { Text(stringResource(R.string.setup_search_apps_hint)) },
-        singleLine = true,
-        modifier = Modifier.fillMaxWidth().testTag("setup_allowlist_search_input"),
-      )
-      Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        installedFiltered.take(20).forEach { app ->
-          val selected = editor.allowedApps.any { it.appId == app.appId }
-          InstalledAppSelectionRow(
-            app = app,
-            selected = selected,
-            onToggle = { onToggleInstalledApp(app) },
-            testTag = "setup_allowed_app_${app.appId.packageName}",
-          )
-        }
-      }
-    }
-
-    val manualOrMissingAllowed =
-      editor.allowedApps.filter { selected -> selected.appId !in installedPackageSet }
-    if (manualOrMissingAllowed.isNotEmpty()) {
-      HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-      Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        manualOrMissingAllowed.forEach { app ->
-          val isMissing = editor.installedAppsLoaded && app.appId !in installedPackageSet
-          SelectedPackageRow(
-            label = app.displayLabel,
-            packageName = app.appId.packageName,
-            staleNote = if (isMissing) stringResource(R.string.setup_stale_app_badge) else null,
-            onRemove = { onRemoveApp(app.appId) },
-            testTag = "setup_selected_allowed_${app.appId.packageName}",
-          )
-        }
-      }
-    }
-
-    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-    FlowRow(
-      horizontalArrangement = Arrangement.spacedBy(8.dp),
-      verticalArrangement = Arrangement.spacedBy(4.dp),
+    MizanExpandableSection(
+      title = stringResource(R.string.disclosure_allowlist_format, editor.allowedApps.size),
+      testTag = "setup_allowlist_toggle",
     ) {
-      AllowlistCategory.entries.forEach { category ->
-        FilterChip(
-          selected = editor.customAllowedCategory == category,
-          onClick = { onCategoryChange(category) },
-          label = { Text(category.name.replace('_', ' ').lowercase()) },
-          modifier = Modifier.minimumInteractiveComponentSize(),
+      if (editor.installedApps.isNotEmpty()) {
+        OutlinedTextField(
+          value = editor.allowlistSearchQuery,
+          onValueChange = onSearchChange,
+          label = { Text(stringResource(R.string.setup_search_apps_hint)) },
+          singleLine = true,
+          modifier = Modifier.fillMaxWidth().testTag("setup_allowlist_search_input"),
         )
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+          installedFiltered.take(20).forEach { app ->
+            val selected = editor.allowedApps.any { it.appId == app.appId }
+            InstalledAppSelectionRow(
+              app = app,
+              selected = selected,
+              onToggle = { onToggleInstalledApp(app) },
+              testTag = "setup_allowed_app_${app.appId.packageName}",
+            )
+          }
+        }
       }
-    }
-    OutlinedTextField(
-      value = editor.customAllowedLabel,
-      onValueChange = onCustomLabelChange,
-      label = { Text(stringResource(R.string.setup_custom_app_label_hint)) },
-      singleLine = true,
-      modifier = Modifier.fillMaxWidth().testTag("setup_custom_allowed_label_input"),
-    )
-    OutlinedTextField(
-      value = editor.customAllowedPackage,
-      onValueChange = onCustomPackageChange,
-      label = { Text(stringResource(R.string.setup_custom_app_package_hint)) },
-      singleLine = true,
-      modifier = Modifier.fillMaxWidth().testTag("setup_custom_allowed_package_input"),
-    )
-    OutlinedButton(
-      onClick = onAddCustom,
-      modifier =
-        Modifier.fillMaxWidth()
-          .minimumInteractiveComponentSize()
-          .heightIn(min = 48.dp)
-          .testTag("setup_add_custom_allowed_button"),
-    ) {
-      Text(stringResource(R.string.setup_add_allowed_custom))
+
+      val manualOrMissingAllowed =
+        editor.allowedApps.filter { selected -> selected.appId !in installedPackageSet }
+      if (manualOrMissingAllowed.isNotEmpty()) {
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+          manualOrMissingAllowed.forEach { app ->
+            val isMissing = editor.installedAppsLoaded && app.appId !in installedPackageSet
+            SelectedPackageRow(
+              label = app.displayLabel,
+              packageName = app.appId.packageName,
+              staleNote = if (isMissing) stringResource(R.string.setup_stale_app_badge) else null,
+              onRemove = { onRemoveApp(app.appId) },
+              testTag = "setup_selected_allowed_${app.appId.packageName}",
+            )
+          }
+        }
+      }
+
+      HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+      FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+      ) {
+        AllowlistCategory.entries.forEach { category ->
+          FilterChip(
+            selected = editor.customAllowedCategory == category,
+            onClick = { onCategoryChange(category) },
+            label = { Text(category.name.replace('_', ' ').lowercase()) },
+            modifier = Modifier.minimumInteractiveComponentSize(),
+          )
+        }
+      }
+      OutlinedTextField(
+        value = editor.customAllowedLabel,
+        onValueChange = onCustomLabelChange,
+        label = { Text(stringResource(R.string.setup_custom_app_label_hint)) },
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth().testTag("setup_custom_allowed_label_input"),
+      )
+      OutlinedTextField(
+        value = editor.customAllowedPackage,
+        onValueChange = onCustomPackageChange,
+        label = { Text(stringResource(R.string.setup_custom_app_package_hint)) },
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth().testTag("setup_custom_allowed_package_input"),
+      )
+      OutlinedButton(
+        onClick = onAddCustom,
+        modifier =
+          Modifier.fillMaxWidth()
+            .minimumInteractiveComponentSize()
+            .heightIn(min = 48.dp)
+            .testTag("setup_add_custom_allowed_button"),
+      ) {
+        Text(stringResource(R.string.setup_add_allowed_custom))
+      }
     }
   }
 }
@@ -747,11 +766,6 @@ internal fun WebsiteFilteringSetupCard(
       onShowHelp = onShowHelp,
       helpTestTag = "setup_website_help_button",
     )
-    Text(
-      text = stringResource(R.string.setup_website_desc),
-      style = MaterialTheme.typography.bodySmall,
-      color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
 
     Row(
       modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {},
@@ -772,91 +786,6 @@ internal fun WebsiteFilteringSetupCard(
       )
     }
 
-    OutlinedTextField(
-      value = editor.customDomainInput,
-      onValueChange = onDomainInputChange,
-      label = { Text(stringResource(R.string.setup_website_domain_hint)) },
-      singleLine = true,
-      modifier = Modifier.fillMaxWidth().testTag("setup_website_domain_input"),
-    )
-
-    Row(
-      modifier = Modifier.fillMaxWidth(),
-      horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-      OutlinedButton(
-        onClick = onAddBlockedDomain,
-        modifier =
-          Modifier.weight(1f)
-            .minimumInteractiveComponentSize()
-            .heightIn(min = 48.dp)
-            .testTag("setup_website_add_block_button"),
-      ) {
-        Text(stringResource(R.string.setup_website_add_block_button))
-      }
-      OutlinedButton(
-        onClick = onAddAllowedDomain,
-        modifier =
-          Modifier.weight(1f)
-            .minimumInteractiveComponentSize()
-            .heightIn(min = 48.dp)
-            .testTag("setup_website_add_allow_button"),
-      ) {
-        Text(stringResource(R.string.setup_website_add_allow_button))
-      }
-    }
-
-    if (editor.blockedDomains.isNotEmpty()) {
-      HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-      Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        editor.blockedDomains
-          .sortedWith(compareBy({ it.ruleType.name }, { it.domain.value }))
-          .forEach { entry ->
-            val typeTag =
-              if (entry.ruleType == com.example.domain.model.DomainRuleType.BLOCK) {
-                "Block"
-              } else {
-                "Allow Exception"
-              }
-            Row(
-              modifier =
-                Modifier.fillMaxWidth()
-                  .testTag(
-                    "setup_website_domain_item_${entry.domain.value}_${entry.ruleType.name.lowercase()}"
-                  ),
-              verticalAlignment = Alignment.CenterVertically,
-              horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-              Text(
-                text = "[$typeTag] ${entry.domain.value}",
-                style = MaterialTheme.typography.bodySmall,
-                color =
-                  if (entry.ruleType == com.example.domain.model.DomainRuleType.BLOCK) {
-                    MaterialTheme.colorScheme.onSurface
-                  } else {
-                    MaterialTheme.colorScheme.primary
-                  },
-                modifier = Modifier.weight(1f),
-              )
-              IconButton(
-                onClick = { onRemoveDomain(entry.domain, entry.ruleType) },
-                modifier =
-                  Modifier.minimumInteractiveComponentSize()
-                    .testTag(
-                      "setup_website_remove_${entry.domain.value}_${entry.ruleType.name.lowercase()}"
-                    ),
-              ) {
-                Icon(
-                  imageVector = Icons.Outlined.Close,
-                  contentDescription = "Remove ${entry.domain.value}",
-                )
-              }
-            }
-          }
-      }
-    }
-
-    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     Text(
       text = stringResource(R.string.setup_website_categories_title),
       style = MaterialTheme.typography.labelLarge,
@@ -873,38 +802,34 @@ internal fun WebsiteFilteringSetupCard(
 
     categories.forEach { (category, label) ->
       val meta = editor.datasetMetadata.firstOrNull { it.category == category }
-      val evalNow =
-        if (editor.datasetEvalEpochMillis > 0L) {
-          editor.datasetEvalEpochMillis
-        } else {
-          System.currentTimeMillis()
-        }
       val statusNote =
-        if (meta == null) {
-          "Unavailable — remote updates disabled (no signed feed configured)"
-        } else {
-          when (
-            com.example.domain.model.DatasetStatusEvaluator.evaluate(
-              metadata = meta,
-              isUpdating = false,
-              nowEpochMillis = evalNow,
-            )
-          ) {
-            com.example.domain.model.DatasetAvailabilityStatus.AVAILABLE ->
-              "Available · v${meta.versionCode} (${meta.recordCount} domains verified)"
-            com.example.domain.model.DatasetAvailabilityStatus.UPDATING ->
-              "Updating…"
-            com.example.domain.model.DatasetAvailabilityStatus.OUTDATED ->
-              "Outdated · cached v${meta.versionCode} (${meta.recordCount} domains still active)"
-            com.example.domain.model.DatasetAvailabilityStatus.FAILED ->
-              if (meta.isUsable) {
-                "Failed — cached v${meta.versionCode} (${meta.recordCount} domains active): ${meta.lastError ?: "update rejected"}"
-              } else {
-                "Failed — ${meta.lastError ?: "dataset verification rejected"}"
-              }
-            com.example.domain.model.DatasetAvailabilityStatus.UNAVAILABLE ->
-              "Unavailable — ${meta.lastError ?: "no verified dataset cached locally"}"
-          }
+        when {
+          meta == null -> "Unavailable — remote updates disabled"
+          editor.datasetEvalEpochMillis <= 0L ->
+            if (meta.isUsable) "v${meta.versionCode} (${meta.recordCount} domains verified)"
+            else "Unavailable — no verified dataset cached locally"
+          else ->
+            when (
+              com.example.domain.model.DatasetStatusEvaluator.evaluate(
+                metadata = meta,
+                isUpdating = false,
+                nowEpochMillis = editor.datasetEvalEpochMillis,
+              )
+            ) {
+              com.example.domain.model.DatasetAvailabilityStatus.AVAILABLE ->
+                "Available · v${meta.versionCode} (${meta.recordCount} domains)"
+              com.example.domain.model.DatasetAvailabilityStatus.UPDATING -> "Updating…"
+              com.example.domain.model.DatasetAvailabilityStatus.OUTDATED ->
+                "Outdated · cached v${meta.versionCode} (${meta.recordCount} domains active)"
+              com.example.domain.model.DatasetAvailabilityStatus.FAILED ->
+                if (meta.isUsable) {
+                  "Failed — cached v${meta.versionCode} active: ${meta.lastError ?: "update rejected"}"
+                } else {
+                  "Failed — ${meta.lastError ?: "dataset verification rejected"}"
+                }
+              com.example.domain.model.DatasetAvailabilityStatus.UNAVAILABLE ->
+                "Unavailable — ${meta.lastError ?: "no verified dataset cached locally"}"
+            }
         }
 
       Row(
@@ -931,6 +856,106 @@ internal fun WebsiteFilteringSetupCard(
           )
         }
       }
+    }
+
+    MizanExpandableSection(
+      title = stringResource(R.string.disclosure_custom_domains, editor.blockedDomains.size),
+      testTag = "setup_custom_domains_toggle",
+    ) {
+      OutlinedTextField(
+        value = editor.customDomainInput,
+        onValueChange = onDomainInputChange,
+        label = { Text(stringResource(R.string.setup_website_domain_hint)) },
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth().testTag("setup_website_domain_input"),
+      )
+
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+      ) {
+        OutlinedButton(
+          onClick = onAddBlockedDomain,
+          modifier =
+            Modifier.weight(1f)
+              .minimumInteractiveComponentSize()
+              .heightIn(min = 48.dp)
+              .testTag("setup_website_add_block_button"),
+        ) {
+          Text(stringResource(R.string.setup_website_add_block_button))
+        }
+        OutlinedButton(
+          onClick = onAddAllowedDomain,
+          modifier =
+            Modifier.weight(1f)
+              .minimumInteractiveComponentSize()
+              .heightIn(min = 48.dp)
+              .testTag("setup_website_add_allow_button"),
+        ) {
+          Text(stringResource(R.string.setup_website_add_allow_button))
+        }
+      }
+
+      if (editor.blockedDomains.isNotEmpty()) {
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+          editor.blockedDomains
+            .sortedWith(compareBy({ it.ruleType.name }, { it.domain.value }))
+            .forEach { entry ->
+              val typeTag =
+                if (entry.ruleType == com.example.domain.model.DomainRuleType.BLOCK) {
+                  "Block"
+                } else {
+                  "Allow Exception"
+                }
+              Row(
+                modifier =
+                  Modifier.fillMaxWidth()
+                    .testTag(
+                      "setup_website_domain_item_${entry.domain.value}_${entry.ruleType.name.lowercase()}"
+                    ),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+              ) {
+                Text(
+                  text = "[$typeTag] ${entry.domain.value}",
+                  style = MaterialTheme.typography.bodySmall,
+                  color =
+                    if (entry.ruleType == com.example.domain.model.DomainRuleType.BLOCK) {
+                      MaterialTheme.colorScheme.onSurface
+                    } else {
+                      MaterialTheme.colorScheme.primary
+                    },
+                  modifier = Modifier.weight(1f),
+                )
+                IconButton(
+                  onClick = { onRemoveDomain(entry.domain, entry.ruleType) },
+                  modifier =
+                    Modifier.minimumInteractiveComponentSize()
+                      .testTag(
+                        "setup_website_remove_${entry.domain.value}_${entry.ruleType.name.lowercase()}"
+                      ),
+                ) {
+                  Icon(
+                    imageVector = Icons.Outlined.Close,
+                    contentDescription = "Remove ${entry.domain.value}",
+                  )
+                }
+              }
+            }
+        }
+      }
+    }
+
+    MizanExpandableSection(
+      title = stringResource(R.string.disclosure_dns_limits),
+      testTag = "setup_website_limits_toggle",
+    ) {
+      Text(
+        text = stringResource(R.string.setup_website_desc),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+      )
     }
   }
 }
@@ -981,12 +1006,187 @@ internal fun AccountabilityPinSetupCard(
         },
       modifier = Modifier.testTag("setup_pin_status_note"),
     )
+    MizanExpandableSection(
+      title = stringResource(R.string.disclosure_pin_details),
+      testTag = "setup_pin_details_toggle",
+    ) {
+      Text(
+        text = stringResource(R.string.setup_pin_disclosure_note),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+      )
+    }
+  }
+}
+
+@Composable
+internal fun YouTubeShortsSetupCard(
+  blockYouTubeShorts: Boolean,
+  healthSnapshot: EnforcementHealthSnapshot,
+  onToggleBlockYouTubeShorts: (Boolean) -> Unit,
+  onOpenAccessibilitySettings: () -> Unit,
+  modifier: Modifier = Modifier,
+  isLocked: Boolean = false,
+  statusNoteOverride: String? = null,
+  onShowHelp: (() -> Unit)? = null,
+  testTagPrefix: String = "setup_youtube_shorts",
+) {
+  MizanSurfaceCard(modifier = modifier.testTag("${testTagPrefix}_card")) {
+    Row(
+      modifier = Modifier.fillMaxWidth(),
+      verticalAlignment = Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+      Row(
+        modifier = Modifier.weight(1f),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+      ) {
+        Icon(
+          imageVector = Icons.Outlined.PlayCircle,
+          contentDescription = null,
+          tint = MaterialTheme.colorScheme.primary,
+          modifier = Modifier.size(20.dp),
+        )
+        Text(
+          text = stringResource(R.string.setup_youtube_shorts_title),
+          style = MaterialTheme.typography.titleMedium,
+          color = MaterialTheme.colorScheme.onSurface,
+        )
+      }
+      if (onShowHelp != null) {
+        ContextualHelpButton(
+          onClick = onShowHelp,
+          contentDescription = stringResource(R.string.guide_contextual_help_cd),
+          testTag = "${testTagPrefix}_help_button",
+        )
+      }
+    }
+
+    if (isLocked) {
+      MizanStatusBadge(
+        icon = Icons.Filled.Lock,
+        label = stringResource(R.string.settings_youtube_shorts_locked_badge),
+        containerColor = MaterialTheme.colorScheme.primaryContainer,
+        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+        modifier = Modifier.testTag("${testTagPrefix}_locked_badge"),
+      )
+    }
+
+    Row(
+      modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {},
+      verticalAlignment = Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+      Text(
+        text = stringResource(R.string.setup_youtube_shorts_toggle_label),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurface,
+        modifier = Modifier.weight(1f).padding(end = 12.dp),
+      )
+      androidx.compose.material3.Switch(
+        checked = blockYouTubeShorts,
+        onCheckedChange = onToggleBlockYouTubeShorts,
+        enabled = !isLocked,
+        modifier =
+          Modifier.minimumInteractiveComponentSize().testTag("${testTagPrefix}_switch"),
+      )
+    }
+
     Text(
-      text = stringResource(R.string.setup_pin_disclosure_note),
+      text = stringResource(R.string.setup_youtube_shorts_short_desc),
       style = MaterialTheme.typography.bodySmall,
       color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
+
+    if (isLocked) {
+      Text(
+        text = stringResource(R.string.settings_youtube_shorts_locked_note),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.testTag("${testTagPrefix}_locked_note"),
+      )
+    } else if (statusNoteOverride != null) {
+      Text(
+        text = statusNoteOverride,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.testTag("${testTagPrefix}_status_note"),
+      )
+    }
+
+    val (a11yIcon, a11yLabel, a11yBg, a11yFg) =
+      when (healthSnapshot.healthStatus) {
+        EnforcementHealthStatus.ACTIVE ->
+          ShortsBadgeStyle(
+            icon = Icons.Filled.CheckCircle,
+            label = "Accessibility: ${stringResource(R.string.health_badge_active)}",
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+          )
+        EnforcementHealthStatus.ENABLED_SERVICE_DISCONNECTED ->
+          ShortsBadgeStyle(
+            icon = Icons.Filled.Warning,
+            label = "Accessibility: ${stringResource(R.string.health_badge_disconnected)}",
+            containerColor = MaterialTheme.colorScheme.errorContainer,
+            contentColor = MaterialTheme.colorScheme.onErrorContainer,
+          )
+        EnforcementHealthStatus.DISABLED ->
+          ShortsBadgeStyle(
+            icon = Icons.Filled.PauseCircleOutline,
+            label = "Accessibility: ${stringResource(R.string.health_badge_disabled)}",
+            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+          )
+        EnforcementHealthStatus.UNAVAILABLE ->
+          ShortsBadgeStyle(
+            icon = Icons.Filled.ErrorOutline,
+            label = "Accessibility: ${stringResource(R.string.health_badge_unavailable)}",
+            containerColor = MaterialTheme.colorScheme.errorContainer,
+            contentColor = MaterialTheme.colorScheme.onErrorContainer,
+          )
+      }
+
+    MizanStatusBadge(
+      icon = a11yIcon,
+      label = a11yLabel,
+      containerColor = a11yBg,
+      contentColor = a11yFg,
+      modifier = Modifier.testTag("${testTagPrefix}_a11y_status"),
+    )
+
+    if (healthSnapshot.healthStatus != EnforcementHealthStatus.ACTIVE) {
+      OutlinedButton(
+        onClick = onOpenAccessibilitySettings,
+        modifier =
+          Modifier.fillMaxWidth()
+            .minimumInteractiveComponentSize()
+            .heightIn(min = 48.dp)
+            .testTag("${testTagPrefix}_open_a11y_button"),
+      ) {
+        Text(text = stringResource(R.string.health_open_settings_button))
+      }
+    }
+
+    MizanExpandableSection(
+      title = stringResource(R.string.setup_youtube_shorts_how_toggle),
+      testTag = "${testTagPrefix}_details_toggle",
+    ) {
+      Text(
+        text = stringResource(R.string.setup_youtube_shorts_how_body),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+      )
+    }
   }
 }
+
+private data class ShortsBadgeStyle(
+  val icon: androidx.compose.ui.graphics.vector.ImageVector,
+  val label: String,
+  val containerColor: androidx.compose.ui.graphics.Color,
+  val contentColor: androidx.compose.ui.graphics.Color,
+)
+
 
 

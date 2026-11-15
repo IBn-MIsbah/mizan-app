@@ -579,6 +579,10 @@ class DatasetStatusAndWorkerRobolectricTest {
       .assertIsDisplayed()
       .assertTextContains("Using cached v4 adult dataset offline.")
     composeRule
+      .onNodeWithTag("settings_dataset_limitations_toggle")
+      .performScrollTo()
+      .performClick()
+    composeRule
       .onNodeWithTag("settings_dataset_limitations_note")
       .performScrollTo()
       .assertIsDisplayed()

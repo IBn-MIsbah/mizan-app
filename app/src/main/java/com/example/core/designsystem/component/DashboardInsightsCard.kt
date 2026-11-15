@@ -124,67 +124,70 @@ fun DashboardInsightsCard(
       modifier = Modifier.testTag("insights_commitments_summary"),
     )
 
-    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+    MizanExpandableSection(
+      title = stringResource(R.string.disclosure_insights_details),
+      testTag = "insights_details_toggle",
+    ) {
+      Text(
+        text = stringResource(R.string.insights_weekly_trend_title),
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.onSurface,
+      )
 
-    Text(
-      text = stringResource(R.string.insights_weekly_trend_title),
-      style = MaterialTheme.typography.labelLarge,
-      color = MaterialTheme.colorScheme.onSurface,
-    )
+      WeeklyTrendBarChart(
+        points = insights.weeklyTrend,
+        modifier = Modifier.fillMaxWidth().testTag("insights_weekly_trend_chart"),
+      )
 
-    WeeklyTrendBarChart(
-      points = insights.weeklyTrend,
-      modifier = Modifier.fillMaxWidth().testTag("insights_weekly_trend_chart"),
-    )
+      val averageText =
+        insights.weeklyAverageDailyUsage?.let { avg ->
+          "Average across recorded days this week: ${WallClockFormatting.formatDuration(avg)}/day."
+        } ?: stringResource(R.string.insights_weekly_no_usage)
+      Text(
+        text = averageText,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.testTag("insights_weekly_average_text"),
+      )
 
-    val averageText =
-      insights.weeklyAverageDailyUsage?.let { avg ->
-        "Average across recorded days this week: ${WallClockFormatting.formatDuration(avg)}/day."
-      } ?: stringResource(R.string.insights_weekly_no_usage)
-    Text(
-      text = averageText,
-      style = MaterialTheme.typography.bodySmall,
-      color = MaterialTheme.colorScheme.onSurfaceVariant,
-      modifier = Modifier.testTag("insights_weekly_average_text"),
-    )
+      HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
-    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+      Text(
+        text = stringResource(R.string.insights_baseline_title),
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.onSurface,
+      )
 
-    Text(
-      text = stringResource(R.string.insights_baseline_title),
-      style = MaterialTheme.typography.labelLarge,
-      color = MaterialTheme.colorScheme.onSurface,
-    )
-
-    val baselineText =
-      when (val comparison = insights.baselineComparison) {
-        is BaselineComparison.InsufficientData ->
-          stringResource(
-            R.string.insights_baseline_insufficient_format,
-            comparison.recordedDaysCount,
-            comparison.requiredDaysCount,
-          )
-        is BaselineComparison.Available -> {
-          val recentText = WallClockFormatting.formatDuration(comparison.recentAverageDaily)
-          val baselineTextValue =
-            WallClockFormatting.formatDuration(comparison.priorBaselineAverageDaily)
-          val deltaText =
-            when {
-              comparison.deltaMinutes < 0 -> "${abs(comparison.deltaMinutes)}m/day lower"
-              comparison.deltaMinutes > 0 -> "${comparison.deltaMinutes}m/day higher"
-              else -> "same daily average"
-            }
-          "Recent ${comparison.recentDaysCount}d average ($recentText/day) vs prior " +
-            "${comparison.baselineDaysCount}d baseline ($baselineTextValue/day): $deltaText."
+      val baselineText =
+        when (val comparison = insights.baselineComparison) {
+          is BaselineComparison.InsufficientData ->
+            stringResource(
+              R.string.insights_baseline_insufficient_format,
+              comparison.recordedDaysCount,
+              comparison.requiredDaysCount,
+            )
+          is BaselineComparison.Available -> {
+            val recentText = WallClockFormatting.formatDuration(comparison.recentAverageDaily)
+            val baselineTextValue =
+              WallClockFormatting.formatDuration(comparison.priorBaselineAverageDaily)
+            val deltaText =
+              when {
+                comparison.deltaMinutes < 0 -> "${abs(comparison.deltaMinutes)}m/day lower"
+                comparison.deltaMinutes > 0 -> "${comparison.deltaMinutes}m/day higher"
+                else -> "same daily average"
+              }
+            "Recent ${comparison.recentDaysCount}d average ($recentText/day) vs prior " +
+              "${comparison.baselineDaysCount}d baseline ($baselineTextValue/day): $deltaText."
+          }
         }
-      }
 
-    Text(
-      text = baselineText,
-      style = MaterialTheme.typography.bodySmall,
-      color = MaterialTheme.colorScheme.onSurfaceVariant,
-      modifier = Modifier.testTag("insights_baseline_text"),
-    )
+      Text(
+        text = baselineText,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.testTag("insights_baseline_text"),
+      )
+    }
   }
 }
 

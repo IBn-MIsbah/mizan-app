@@ -15,6 +15,7 @@ import com.example.domain.repository.PersistenceResult
 import com.example.testing.FakeAccountabilityMetadataRepository
 import com.example.testing.FakeCommitmentRepository
 import com.example.testing.FakeDomainFilterRepository
+import com.example.testing.FakeEnforcementHealthMonitor
 import com.example.testing.FakeIdGenerator
 import com.example.testing.FakeInstalledAppRepository
 import com.example.testing.FakeTimeProvider
@@ -61,6 +62,7 @@ class CommitmentsViewModelTest {
         installedRepo,
         FakeDomainFilterRepository(),
         FakeAccountabilityMetadataRepository(),
+        FakeEnforcementHealthMonitor(),
         timeProvider,
         idGenerator,
       )
@@ -87,6 +89,7 @@ class CommitmentsViewModelTest {
         installedRepo,
         FakeDomainFilterRepository(),
         FakeAccountabilityMetadataRepository(),
+        FakeEnforcementHealthMonitor(),
         timeProvider,
         idGenerator,
       )
@@ -130,6 +133,7 @@ class CommitmentsViewModelTest {
         installedRepo,
         FakeDomainFilterRepository(),
         FakeAccountabilityMetadataRepository(),
+        FakeEnforcementHealthMonitor(),
         timeProvider,
         idGenerator,
       )

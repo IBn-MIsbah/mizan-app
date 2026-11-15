@@ -27,14 +27,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.R
 import com.example.core.designsystem.component.ContextualGuideSheet
 import com.example.core.designsystem.component.ContextualHelpButton
+import com.example.core.designsystem.component.MizanExpandableSection
 import com.example.core.designsystem.component.MizanStatusBadge
 import com.example.core.designsystem.component.MizanSurfaceCard
 import com.example.domain.model.RestrictionMode
@@ -52,6 +56,11 @@ fun CommitmentsRoute(
   viewModel: CommitmentsViewModel = hiltViewModel(),
 ) {
   val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+  val context = LocalContext.current
+
+  LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+    viewModel.refreshHealth()
+  }
 
   LaunchedEffect(viewModel) {
     viewModel.effects.collectLatest { effect ->
@@ -65,6 +74,9 @@ fun CommitmentsRoute(
     uiState = uiState,
     viewModel = viewModel,
     onNavigateToDashboard = onNavigateToDashboard,
+    onOpenAccessibilitySettings = {
+      runCatching { context.startActivity(viewModel.createAccessibilitySettingsIntent()) }
+    },
     onOpenUserGuide = onOpenUserGuide,
     modifier = modifier,
   )
@@ -76,6 +88,7 @@ fun CommitmentsScreen(
   viewModel: CommitmentsViewModel,
   onNavigateToDashboard: () -> Unit,
   modifier: Modifier = Modifier,
+  onOpenAccessibilitySettings: () -> Unit = {},
   onOpenUserGuide: (sectionId: String?, walkthroughMode: Boolean) -> Unit = { _, _ -> },
 ) {
   var activeHelpContext by remember { mutableStateOf<ContextualGuideContext?>(null) }
@@ -99,32 +112,49 @@ fun CommitmentsScreen(
       verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
       item {
-        Row(
-          modifier = Modifier.fillMaxWidth(),
-          verticalAlignment = Alignment.CenterVertically,
-          horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-          Column(
-            modifier = Modifier.weight(1f).padding(end = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+          ) {
+            Column(
+              modifier = Modifier.weight(1f).padding(end = 8.dp),
+              verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+              Text(
+                text = stringResource(R.string.setup_headline),
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.onBackground,
+              )
+              Text(
+                text = stringResource(R.string.setup_subtitle),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+              )
+            }
+            ContextualHelpButton(
+              onClick = { activeHelpContext = ContextualGuideContext.SETUP_MODES },
+              contentDescription = stringResource(R.string.guide_contextual_help_cd),
+              label = stringResource(R.string.guide_open_action),
+              testTag = "setup_contextual_help_button",
+            )
+          }
+          MizanExpandableSection(
+            title = stringResource(R.string.disclosure_commitment_rules_help),
+            testTag = "setup_rules_overview_toggle",
           ) {
             Text(
-              text = stringResource(R.string.setup_headline),
-              style = MaterialTheme.typography.headlineSmall,
-              color = MaterialTheme.colorScheme.onBackground,
+              text = stringResource(R.string.onboarding_agreement_subtitle),
+              style = MaterialTheme.typography.bodySmall,
+              color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
-              text = stringResource(R.string.setup_subtitle),
-              style = MaterialTheme.typography.bodyMedium,
+              text = stringResource(R.string.dashboard_allowance_note),
+              style = MaterialTheme.typography.bodySmall,
               color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
           }
-          ContextualHelpButton(
-            onClick = { activeHelpContext = ContextualGuideContext.SETUP_MODES },
-            contentDescription = stringResource(R.string.guide_contextual_help_cd),
-            label = stringResource(R.string.guide_open_action),
-            testTag = "setup_contextual_help_button",
-          )
         }
       }
 
@@ -264,6 +294,17 @@ fun CommitmentsScreen(
               onRemoveDomain = viewModel::removeDomainRule,
               onToggleCategory = viewModel::toggleDomainCategory,
               onShowHelp = { activeHelpContext = ContextualGuideContext.SETUP_WEBSITE },
+            )
+          }
+
+          item {
+            YouTubeShortsSetupCard(
+              blockYouTubeShorts = editor.blockYouTubeShorts,
+              healthSnapshot = editor.accessibilityHealth,
+              onToggleBlockYouTubeShorts = viewModel::setBlockYouTubeShorts,
+              onOpenAccessibilitySettings = onOpenAccessibilitySettings,
+              onShowHelp = { activeHelpContext = ContextualGuideContext.SETUP_APPS },
+              testTagPrefix = "setup_youtube_shorts",
             )
           }
 

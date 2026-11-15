@@ -415,9 +415,16 @@ class VpnFilterAndUiRobolectricTest {
         hasConsented = true,
         isPermissionPrepared = true,
         isTunnelEstablished = true,
+        forwardedQueryCount = 12L,
+        blockedQueryCount = 3L,
+        upstreamFailureCount = 0L,
       )
     composeRule.waitForIdle()
     composeRule.onNodeWithTag("test_vpn_status_badge").performScrollTo().assertTextContains("Active")
+    composeRule
+      .onNodeWithTag("test_vpn_session_stats")
+      .performScrollTo()
+      .assertTextContains("Forwarded: 12", substring = true)
     composeRule.onNodeWithTag("test_vpn_stop_button").performScrollTo().assertIsEnabled().performClick()
     assertEquals(1, stopClicks)
   }
@@ -431,6 +438,7 @@ class VpnFilterAndUiRobolectricTest {
         installedAppRepository = FakeInstalledAppRepository(),
         domainFilterRepository = FakeDomainFilterRepository(),
         accountabilityMetadataRepository = FakeAccountabilityMetadataRepository(),
+        enforcementHealthMonitor = FakeEnforcementHealthMonitor(),
         timeProvider = timeProvider,
         idGenerator = FakeIdGenerator(),
       )

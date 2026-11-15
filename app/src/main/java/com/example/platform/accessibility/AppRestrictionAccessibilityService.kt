@@ -15,14 +15,20 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
- * Narrow AccessibilityService adapter for foreground window package detection only.
+ * Narrow AccessibilityService adapter for foreground window package detection and optional
+ * in-memory YouTube Shorts player detection.
  *
  * Privacy and security guarantees:
- * - Requests ONLY `typeWindowStateChanged` and `canRetrieveWindowContent="false"`.
- * - Never inspects window content, accessibility node trees, typed text, or screenshots.
- * - Never logs foreground package names or browsing activity.
+ * - Observes `typeWindowStateChanged` for foreground app restrictions and
+ *   `typeWindowContentChanged` strictly for detecting the active YouTube Shorts player when the
+ *   user explicitly enables YouTube Shorts restriction in an active commitment.
+ * - Never inspects window content when YouTube Shorts restriction is disabled or inactive, or for
+ *   any package other than `com.google.android.youtube`.
+ * - Never stores, persists, logs, or uploads window text, video titles, search queries,
+ *   comments, watch history, or screenshots.
  * - Observes `ACTION_SCREEN_OFF` and `ACTION_SHUTDOWN` dynamically only while connected so active
  *   usage intervals close accurately when the screen turns off.
  */
@@ -53,6 +59,9 @@ class AppRestrictionAccessibilityService : AccessibilityService() {
 
   override fun onServiceConnected() {
     super.onServiceConnected()
+    if (!::coordinator.isInitialized || !::dispatcherProvider.isInitialized) {
+      return
+    }
     serviceScope?.cancel()
     serviceScope = CoroutineScope(SupervisorJob() + dispatcherProvider.default)
     registerScreenReceiverSafely()
@@ -61,15 +70,50 @@ class AppRestrictionAccessibilityService : AccessibilityService() {
 
   override fun onAccessibilityEvent(event: AccessibilityEvent?) {
     val safeEvent = event ?: return
-    if (safeEvent.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
-    val foregroundPackage = safeEvent.packageName?.toString() ?: return
+    if (!::coordinator.isInitialized || !::dispatcherProvider.isInitialized) {
+      return
+    }
+    val eventType = safeEvent.eventType
+    if (
+      eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED &&
+        eventType != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED
+    ) {
+      return
+    }
 
+    val eventPackage = safeEvent.packageName?.toString() ?: return
     val activeScope =
       serviceScope
         ?: CoroutineScope(SupervisorJob() + dispatcherProvider.default).also {
           serviceScope = it
         }
-    activeScope.launch { coordinator.onForegroundPackageObserved(foregroundPackage) }
+
+    if (eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+      activeScope.launch { coordinator.onForegroundPackageObserved(eventPackage) }
+    }
+
+    if (
+      eventPackage == YouTubeShortsDetector.YOUTUBE_PACKAGE_NAME &&
+        coordinator.shouldInspectYouTubeShortsNow()
+    ) {
+      val snapshot =
+        AccessibilityTreeSnapshotExtractor.capture(
+          root = rootInActiveWindow,
+          expectedPackageName = YouTubeShortsDetector.YOUTUBE_PACKAGE_NAME,
+        )
+      activeScope.launch {
+        val shouldNavigateBack =
+          coordinator.onYouTubeWindowObserved(
+            rawPackageName = YouTubeShortsDetector.YOUTUBE_PACKAGE_NAME,
+            snapshot = snapshot,
+          )
+        if (shouldNavigateBack) {
+          withContext(dispatcherProvider.main) {
+            runCatching { performGlobalAction(GLOBAL_ACTION_BACK) }
+          }
+        }
+      }
+    }
   }
 
   override fun onInterrupt() {

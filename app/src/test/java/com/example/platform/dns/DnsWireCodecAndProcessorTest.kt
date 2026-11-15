@@ -275,4 +275,148 @@ class DnsWireCodecAndProcessorTest {
     DnsWireCodec.writeU16(request, 22, 443)
     assertNull(Ipv4UdpDnsPacketCodec.parseDnsQueryPacket(request, request.size))
   }
+
+  @Test
+  fun `processor returns TC=1 truncated response for oversized UDP reply and full reply over TCP`() =
+    runTest {
+      val oversizedReply =
+        buildQueryBytes(txId = 0x3333, qname = "search.example").let { base ->
+          ByteArray(2200).also { buf ->
+            base.copyInto(buf)
+            DnsWireCodec.writeU16(buf, 2, 0x8180) // QR=1, NOERROR
+          }
+        }
+      val forwarder =
+        object : UpstreamDnsForwarder {
+          override suspend fun forwardQuery(rawDnsQuery: ByteArray): ByteArray = oversizedReply.copyOf()
+
+          override suspend fun forwardQueryTcp(rawDnsQuery: ByteArray): ByteArray =
+            oversizedReply.copyOf()
+        }
+      val processor = DnsQueryProcessor(timeProvider, forwarder)
+      val commitment = activeCommitmentWithBlock("blocked.example")
+      val compiled = CompiledDomainRuleSet.compile(commitment)
+
+      val query = buildQueryBytes(txId = 0x3333, qname = "search.example", qtype = DnsRecordType.HTTPS.code)
+      val udpOutcome =
+        processor.processDnsQuery(query, commitment, compiled, transport = DnsTransport.UDP)
+          as DnsProcessOutcome.ForwardedUpstream
+      assertTrue(udpOutcome.wasTruncatedForMtu)
+      assertTrue(udpOutcome.responseBytes.size <= DnsWireCodec.MAX_TUN_UDP_DNS_PAYLOAD)
+      assertTrue(DnsWireCodec.hasTruncatedFlag(udpOutcome.responseBytes))
+      assertEquals(0x3333, DnsWireCodec.readU16(udpOutcome.responseBytes, 0))
+      assertEquals(DnsWireCodec.RCODE_NOERROR, DnsWireCodec.readU16(udpOutcome.responseBytes, 2) and 0x0F)
+
+      val tcpOutcome =
+        processor.processDnsQuery(query, commitment, compiled, transport = DnsTransport.TCP)
+          as DnsProcessOutcome.ForwardedUpstream
+      assertEquals(2200, tcpOutcome.responseBytes.size)
+      assertEquals(0x3333, DnsWireCodec.readU16(tcpOutcome.responseBytes, 0))
+    }
+
+  @Test
+  fun `ipv4 udp packet codec ignores fragmented packets`() {
+    val dnsPayload = buildQueryBytes(txId = 0x1010, qname = "example.com")
+    val packet =
+      Ipv4UdpDnsPacketCodec.buildDnsResponsePacket(
+        request =
+          Ipv4UdpDnsDatagram(
+            sourceIp = byteArrayOf(10, 120, 0, 2),
+            destinationIp = byteArrayOf(10, 120, 0, 1),
+            sourcePort = 53,
+            destinationPort = 50000,
+            dnsPayload = ByteArray(0),
+          ),
+        dnsResponsePayload = dnsPayload,
+      )
+    // Set More Fragments (MF = 0x2000) flag in IPv4 flags/fragment offset
+    DnsWireCodec.writeU16(packet, 6, 0x2000)
+    assertNull(Ipv4UdpDnsPacketCodec.parseDnsQueryPacket(packet, packet.size))
+  }
+
+  @Test
+  fun `tcp dns session manager handles handshake large chunked response and unexpected RST`() =
+    runTest {
+      val clientIp = byteArrayOf(10, 120, 0, 1)
+      val dnsIp = byteArrayOf(10, 120, 0, 2)
+      val clientPort = 52400
+      val sentPackets = mutableListOf<ByteArray>()
+
+      val dnsQuery = buildQueryBytes(txId = 0x7777, qname = "large.example")
+      val largeDnsResponse =
+        ByteArray(2400).also { buf ->
+          dnsQuery.copyInto(buf)
+          DnsWireCodec.writeU16(buf, 2, 0x8180)
+        }
+
+      val manager =
+        TcpDnsSessionManager(
+          scope = this,
+          workerDispatcher = kotlinx.coroutines.Dispatchers.Unconfined,
+          packetWriter = { sentPackets += it },
+          onDnsQuery = { received ->
+            assertArrayEquals(dnsQuery, received)
+            largeDnsResponse
+          },
+        )
+
+      // 1. Client SYN
+      val syn =
+        Ipv4TcpDnsCodec.buildTcpResponsePacket(
+          srcIp = clientIp,
+          dstIp = dnsIp,
+          srcPort = clientPort,
+          dstPort = 53,
+          seqNum = 1000L,
+          ackNum = 0L,
+          flags = Ipv4TcpDnsCodec.FLAG_SYN,
+        )
+      assertTrue(manager.handlePacket(syn, syn.size))
+      assertEquals(1, sentPackets.size)
+      val synAck = Ipv4TcpDnsCodec.parseTcpPacket(sentPackets.last())!!
+      assertTrue(synAck.isSyn && synAck.isAck)
+      assertEquals(1001L, synAck.ackNum)
+
+      // 2. Client ACK + PSH with 2-byte length prefix + DNS query
+      val framedQuery = ByteArray(2 + dnsQuery.size)
+      DnsWireCodec.writeU16(framedQuery, 0, dnsQuery.size)
+      dnsQuery.copyInto(framedQuery, destinationOffset = 2)
+      val dataPkt =
+        Ipv4TcpDnsCodec.buildTcpResponsePacket(
+          srcIp = clientIp,
+          dstIp = dnsIp,
+          srcPort = clientPort,
+          dstPort = 53,
+          seqNum = 1001L,
+          ackNum = synAck.seqNum + 1L,
+          flags = Ipv4TcpDnsCodec.FLAG_ACK or Ipv4TcpDnsCodec.FLAG_PSH,
+          payload = framedQuery,
+        )
+      assertTrue(manager.handlePacket(dataPkt, dataPkt.size))
+
+      // Verify all outbound packets stay within 1500-byte MTU and reassemble the 2400-byte reply
+      assertTrue(sentPackets.all { it.size <= 1500 })
+      val serverPayloads =
+        sentPackets.drop(1).mapNotNull { Ipv4TcpDnsCodec.parseTcpPacket(it)?.payload }.filter { it.isNotEmpty() }
+      val reassembled = ByteArrayOutputStream().apply { serverPayloads.forEach { write(it) } }.toByteArray()
+      assertEquals(2 + 2400, reassembled.size)
+      assertEquals(2400, DnsWireCodec.readU16(reassembled, 0))
+      assertTrue(sentPackets.any { Ipv4TcpDnsCodec.parseTcpPacket(it)?.isFin == true })
+
+      // 3. Unknown port/session gets immediate RST
+      sentPackets.clear()
+      val unknownSyn =
+        Ipv4TcpDnsCodec.buildTcpResponsePacket(
+          srcIp = clientIp,
+          dstIp = dnsIp,
+          srcPort = 60001,
+          dstPort = 443,
+          seqNum = 500L,
+          ackNum = 0L,
+          flags = Ipv4TcpDnsCodec.FLAG_SYN,
+        )
+      assertTrue(manager.handlePacket(unknownSyn, unknownSyn.size))
+      val rst = Ipv4TcpDnsCodec.parseTcpPacket(sentPackets.single())!!
+      assertTrue(rst.isRst)
+    }
 }

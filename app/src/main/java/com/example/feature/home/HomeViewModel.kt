@@ -57,6 +57,19 @@ sealed interface DashboardUsageCoverage {
   ) : DashboardUsageCoverage
 }
 
+enum class OperationalReadiness {
+  NOT_CONFIGURED,
+  CONFIGURED_ACTION_NEEDED,
+  ENABLED_NOT_OPERATIONAL,
+  OPERATIONAL,
+  UNAVAILABLE,
+}
+
+data class DashboardProtectionReadiness(
+  val appStatus: OperationalReadiness = OperationalReadiness.NOT_CONFIGURED,
+  val webStatus: OperationalReadiness = OperationalReadiness.NOT_CONFIGURED,
+)
+
 sealed interface DashboardStatus {
   data object NoCommitment : DashboardStatus
 
@@ -74,6 +87,9 @@ sealed interface DashboardStatus {
         isUsageAccessEnabled = false,
         isAccessibilityActive = false,
       ),
+    val currentDayOfSeven: Int = 1,
+    val elapsedProgressFraction: Float = 0.02f,
+    val remainingDurationLabel: String = "6d",
   ) : DashboardStatus
 
   data class Completed(val commitment: Commitment.Completed) : DashboardStatus
@@ -91,6 +107,7 @@ data class DashboardContent(
   val batteryOptimizationSnapshot: BatteryOptimizationSnapshot = BatteryOptimizationSnapshot(),
   val vpnFilterSnapshot: VpnFilterSnapshot = VpnFilterSnapshot(),
   val insights: DashboardInsights? = null,
+  val readiness: DashboardProtectionReadiness = DashboardProtectionReadiness(),
 )
 
 sealed interface DashboardUiState {
@@ -273,14 +290,38 @@ constructor(
               healthSnapshot = monitors.health,
               usageAccessSnapshot = monitors.usageAccess,
             )
+          val hasReachedEnd = active.hasReachedEnd(currentNow)
+          val totalMs =
+            (active.endsAt.epochMillis - active.activatedAt.epochMillis).coerceAtLeast(1L)
+          val elapsedFraction =
+            if (hasReachedEnd) 1f
+            else
+              ((currentNow.epochMillis - active.activatedAt.epochMillis).toFloat() /
+                  totalMs.toFloat())
+                .coerceIn(0.02f, 1f)
+          val elapsedDays =
+            (((currentNow.epochMillis - active.activatedAt.epochMillis).coerceAtLeast(0L)) /
+                (24L * 60L * 60L * 1000L))
+              .toInt() + 1
+          val boundedDay = elapsedDays.coerceIn(1, 7)
           val status =
             DashboardStatus.Active(
               commitment = active,
               dailyUsage = usage,
               remainingAllowance = remaining,
-              hasReachedEnd = active.hasReachedEnd(currentNow),
+              hasReachedEnd = hasReachedEnd,
               usageLoadError = usageError,
               usageCoverage = coverage,
+              currentDayOfSeven = boundedDay,
+              elapsedProgressFraction = elapsedFraction,
+              remainingDurationLabel = "${(7 - boundedDay).coerceAtLeast(0)}d",
+            )
+          val readiness =
+            resolveReadiness(
+              active = active,
+              draft = null,
+              health = monitors.health,
+              vpn = monitors.vpn,
             )
           val history = commitments.filter { it.id != active.id && it !is Commitment.Draft }
           DashboardUiState.Success(
@@ -294,6 +335,7 @@ constructor(
               batteryOptimizationSnapshot = monitors.battery,
               vpnFilterSnapshot = monitors.vpn,
               insights = insights,
+              readiness = readiness,
             )
           )
         }
@@ -322,6 +364,14 @@ constructor(
       }
     val history = commitments.filter { it.id != primaryId && it !is Commitment.Draft }
 
+    val readiness =
+      resolveReadiness(
+        active = null,
+        draft = draft,
+        health = monitors.health,
+        vpn = monitors.vpn,
+      )
+
     return flowOf(
       DashboardUiState.Success(
         DashboardContent(
@@ -334,9 +384,55 @@ constructor(
           batteryOptimizationSnapshot = monitors.battery,
           vpnFilterSnapshot = monitors.vpn,
           insights = insights,
+          readiness = readiness,
         )
       )
     )
+  }
+
+  private fun resolveReadiness(
+    active: Commitment.Active?,
+    draft: Commitment.Draft?,
+    health: EnforcementHealthSnapshot,
+    vpn: VpnFilterSnapshot,
+  ): DashboardProtectionReadiness {
+    val appStatus =
+      when {
+        active != null && active.rules.restrictedApps.isNotEmpty() ->
+          when (health.healthStatus) {
+            EnforcementHealthStatus.ACTIVE -> OperationalReadiness.OPERATIONAL
+            EnforcementHealthStatus.ENABLED_SERVICE_DISCONNECTED ->
+              OperationalReadiness.ENABLED_NOT_OPERATIONAL
+            EnforcementHealthStatus.DISABLED -> OperationalReadiness.CONFIGURED_ACTION_NEEDED
+            EnforcementHealthStatus.UNAVAILABLE -> OperationalReadiness.UNAVAILABLE
+          }
+        draft != null && draft.rules.restrictedApps.isNotEmpty() ->
+          if (health.healthStatus == EnforcementHealthStatus.UNAVAILABLE) {
+            OperationalReadiness.UNAVAILABLE
+          } else {
+            OperationalReadiness.CONFIGURED_ACTION_NEEDED
+          }
+        else -> OperationalReadiness.NOT_CONFIGURED
+      }
+
+    val webStatus =
+      when {
+        active != null && active.rules.hasConfiguredWebsiteFiltering() ->
+          when (vpn.status) {
+            com.example.platform.vpn.VpnServiceLifecycleStatus.ACTIVE ->
+              OperationalReadiness.OPERATIONAL
+            com.example.platform.vpn.VpnServiceLifecycleStatus.STARTING ->
+              OperationalReadiness.ENABLED_NOT_OPERATIONAL
+            com.example.platform.vpn.VpnServiceLifecycleStatus.DEGRADED_ERROR ->
+              OperationalReadiness.UNAVAILABLE
+            else -> OperationalReadiness.CONFIGURED_ACTION_NEEDED
+          }
+        draft != null && draft.rules.hasConfiguredWebsiteFiltering() ->
+          OperationalReadiness.CONFIGURED_ACTION_NEEDED
+        else -> OperationalReadiness.NOT_CONFIGURED
+      }
+
+    return DashboardProtectionReadiness(appStatus = appStatus, webStatus = webStatus)
   }
 
   private fun resolveCoverage(

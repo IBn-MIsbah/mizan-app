@@ -127,6 +127,7 @@ fun MizanNavHost(
         onRevisitOnboarding = {
           navController.navigate(MizanRoute.Onboarding(revisitFromSettings = true))
         },
+        onNavigateToSetup = { navController.navigateToTopLevel(MizanRoute.Commitments) },
         onOpenUserGuide = openGuide,
       )
     }

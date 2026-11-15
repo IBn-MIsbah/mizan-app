@@ -30,7 +30,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.example.R
-import com.example.feature.guide.ContextualGuideCatalog
 import com.example.platform.vpn.VpnFilterSnapshot
 import com.example.platform.vpn.VpnServiceLifecycleStatus
 
@@ -43,6 +42,7 @@ fun VpnFilterHealthCard(
   modifier: Modifier = Modifier,
   testTagPrefix: String = "vpn_filter",
   actionFeedback: String? = null,
+  usePrimaryActionButton: Boolean = true,
 ) {
   val presentation =
     when (vpnSnapshot.status) {
@@ -167,6 +167,22 @@ fun VpnFilterHealthCard(
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
       )
+      if (vpnSnapshot.isTunnelEstablished) {
+        Text(
+          text =
+            stringResource(
+              R.string.vpn_session_stats_format,
+              vpnSnapshot.forwardedQueryCount,
+              vpnSnapshot.blockedQueryCount,
+              vpnSnapshot.upstreamFailureCount,
+            ),
+          style = MaterialTheme.typography.bodySmall,
+          color =
+            if (vpnSnapshot.upstreamFailureCount > 0L) MaterialTheme.colorScheme.error
+            else MaterialTheme.colorScheme.onSurfaceVariant,
+          modifier = Modifier.testTag("${testTagPrefix}_session_stats"),
+        )
+      }
     }
 
     if (vpnSnapshot.datasetWarningMessage != null) {
@@ -196,16 +212,14 @@ fun VpnFilterHealthCard(
     }
 
     if (vpnSnapshot.hasActiveWebsiteCommitment) {
-      Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+      MizanExpandableSection(
+        title = stringResource(R.string.disclosure_dns_limits),
+        testTag = "${testTagPrefix}_limitations_toggle",
+      ) {
         Text(
-          text = stringResource(R.string.vpn_disclosure_title),
-          style = MaterialTheme.typography.labelLarge,
-          color = MaterialTheme.colorScheme.onSurface,
-        )
-        MizanSlideDeck(
-          slides = ContextualGuideCatalog.vpnDisclosureSlides,
-          testTagPrefix = "${testTagPrefix}_disclosure_deck",
-          compactVisualPadding = true,
+          text = stringResource(R.string.vpn_disclosure_body),
+          style = MaterialTheme.typography.bodySmall,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
       }
 
@@ -253,8 +267,20 @@ fun VpnFilterHealthCard(
         ) {
           Text(text = stringResource(R.string.vpn_stop_button))
         }
-      } else {
+      } else if (usePrimaryActionButton) {
         Button(
+          onClick = onEnableAndStartVpn,
+          enabled = vpnSnapshot.hasConsented,
+          modifier =
+            Modifier.fillMaxWidth()
+              .minimumInteractiveComponentSize()
+              .heightIn(min = 48.dp)
+              .testTag("${testTagPrefix}_start_button"),
+        ) {
+          Text(text = stringResource(R.string.vpn_enable_start_button))
+        }
+      } else {
+        OutlinedButton(
           onClick = onEnableAndStartVpn,
           enabled = vpnSnapshot.hasConsented,
           modifier =

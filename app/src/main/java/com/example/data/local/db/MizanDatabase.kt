@@ -25,7 +25,7 @@ import com.example.data.local.entity.UsageEventEntity
 import com.example.data.local.entity.UsageIntegrityStateEntity
 
 /**
- * MIZAN local SQLite database (version 4).
+ * MIZAN local SQLite database (version 5).
  *
  * Schema management policy:
  * - `exportSchema = true` exports schema JSON files to `app/schemas/` under version control.
@@ -36,6 +36,7 @@ import com.example.data.local.entity.UsageIntegrityStateEntity
  *   and `filter_dataset_domains` via `MIGRATION_2_3`.
  * - Version 4 extends `daily_usages` (`blocked_attempts`) and adds `removal_requests` via
  *   `MIGRATION_3_4`.
+ * - Version 5 adds `block_youtube_shorts` to `commitment_rules` via `MIGRATION_4_5`.
  */
 @Database(
   entities = [
@@ -55,7 +56,7 @@ import com.example.data.local.entity.UsageIntegrityStateEntity
     AccountabilityMetadataEntity::class,
     RemovalRequestEntity::class,
   ],
-  version = 4,
+  version = 5,
   exportSchema = true,
 )
 abstract class MizanDatabase : RoomDatabase() {

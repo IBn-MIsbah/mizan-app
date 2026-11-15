@@ -97,19 +97,12 @@ fun AccessibilityHealthCard(
       modifier = Modifier.testTag("${testTagPrefix}_status_badge"),
     )
 
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-      Text(
-        text = descriptionText,
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurface,
-        modifier = Modifier.testTag("${testTagPrefix}_status_description"),
-      )
-      Text(
-        text = stringResource(R.string.health_privacy_note),
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-      )
-    }
+    Text(
+      text = descriptionText,
+      style = MaterialTheme.typography.bodyMedium,
+      color = MaterialTheme.colorScheme.onSurface,
+      modifier = Modifier.testTag("${testTagPrefix}_status_description"),
+    )
 
     if (settingsLaunchError != null) {
       Text(
@@ -129,6 +122,17 @@ fun AccessibilityHealthCard(
           .testTag("${testTagPrefix}_open_accessibility_settings_button"),
     ) {
       Text(text = stringResource(R.string.health_open_settings_button))
+    }
+
+    MizanExpandableSection(
+      title = stringResource(R.string.disclosure_show_details),
+      testTag = "${testTagPrefix}_details_toggle",
+    ) {
+      Text(
+        text = stringResource(R.string.health_privacy_note),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+      )
     }
   }
 }

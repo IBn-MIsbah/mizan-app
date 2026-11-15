@@ -238,17 +238,28 @@ class HardeningUiRobolectricTest {
 
     composeRule
       .onNodeWithTag("home_screen_list")
+      .performScrollToNode(hasTestTag("dashboard_urgent_battery_warning"))
+    composeRule.onNodeWithTag("dashboard_urgent_fix_battery_button").assertIsDisplayed()
+
+    composeRule
+      .onNodeWithTag("home_screen_list")
       .performScrollToNode(hasTestTag("dashboard_insights_card"))
     composeRule.onNodeWithTag("insights_today_blocked_value").assertTextContains("3")
     composeRule.onNodeWithTag("insights_scope_blocked_value").assertTextContains("7")
     composeRule.onNodeWithTag("insights_streak_value").assertTextContains("5d")
-    composeRule.onNodeWithTag("insights_trend_day_0").assertIsDisplayed()
-    composeRule.onNodeWithTag("insights_trend_day_6").assertIsDisplayed()
-    composeRule.onNodeWithTag("insights_baseline_text").assertTextContains("4 of 6", substring = true)
+    composeRule.onNodeWithTag("insights_trend_day_0").assertDoesNotExist()
+    composeRule.onNodeWithTag("insights_details_toggle").performScrollTo().performClick()
+    composeRule.onNodeWithTag("insights_trend_day_0").performScrollTo().assertIsDisplayed()
+    composeRule.onNodeWithTag("insights_trend_day_6").performScrollTo().assertIsDisplayed()
+    composeRule
+      .onNodeWithTag("insights_baseline_text")
+      .performScrollTo()
+      .assertTextContains("4 of 6", substring = true)
 
     composeRule
       .onNodeWithTag("home_screen_list")
-      .performScrollToNode(hasTestTag("dashboard_battery_optimization_card"))
+      .performScrollToNode(hasTestTag("dashboard_system_health_toggle"))
+    composeRule.onNodeWithTag("dashboard_system_health_toggle").performScrollTo().performClick()
     composeRule
       .onNodeWithTag("dashboard_battery_optimization_open_settings_button")
       .performScrollTo()

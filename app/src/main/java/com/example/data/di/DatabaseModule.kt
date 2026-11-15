@@ -210,6 +210,15 @@ object DatabaseModule {
       }
     }
 
+  val MIGRATION_4_5: Migration =
+    object : Migration(4, 5) {
+      override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL(
+          "ALTER TABLE `commitment_rules` ADD COLUMN `block_youtube_shorts` INTEGER NOT NULL DEFAULT 0"
+        )
+      }
+    }
+
   /**
    * Provides the local Room database without destructive migrations so user data is never
    * silently dropped on upgrades. Explicit [androidx.room.migration.Migration] instances must
@@ -223,7 +232,7 @@ object DatabaseModule {
         MizanDatabase::class.java,
         MizanDatabase.DATABASE_NAME,
       )
-      .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+      .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
       .build()
 
   @Provides

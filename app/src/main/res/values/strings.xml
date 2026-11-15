@@ -14,12 +14,12 @@
     <string name="close_label">Done</string>
     <string name="error_generic">Unable to load local commitment data.</string>
     <string name="status_not_active_notice_title">On-Device Hardening &amp; Scope Notice</string>
-    <string name="status_not_active_notice_body">App blocking, local foreground usage measurement, shared Hybrid allowance accounting, optional UsageStats reconciliation, optional on-device DNS-only website filtering, Android Keystore Accountability PIN protection, and optional 24-hour voluntary removal cooling-off operate offline on-device. Remote category feed updates remain disabled until a signed feed and pinned public key are configured; YouTube Shorts-only detection remains post-MVP.</string>
+    <string name="status_not_active_notice_body">App blocking, local foreground usage measurement, shared Hybrid allowance accounting, optional UsageStats reconciliation, optional YouTube Shorts player redirection, optional on-device DNS-only website filtering, Android Keystore Accountability PIN protection, and optional 24-hour voluntary removal cooling-off operate offline on-device. Remote category feed updates remain disabled until a signed feed and pinned public key are configured.</string>
 
     <!-- Accessibility Service & Enforcement Health -->
     <string name="accessibility_service_label">Mizan App Restriction Monitor</string>
-    <string name="accessibility_service_summary">Detects when a restricted app enters the foreground during an active commitment</string>
-    <string name="accessibility_service_description">MIZAN uses this accessibility service strictly to detect the package name of the foreground app so it can present a blocking screen for apps you chose to restrict during an active commitment. MIZAN never reads screen text, captures screenshots, logs keystrokes, or uploads data off your device.</string>
+    <string name="accessibility_service_summary">Detects restricted apps and optional YouTube Shorts playback during an active commitment</string>
+    <string name="accessibility_service_description">MIZAN uses this accessibility service to detect when a restricted app enters the foreground during an active commitment and, if you explicitly enable YouTube Shorts restriction, to recognize active YouTube Shorts player screens so MIZAN can navigate back automatically. MIZAN only reads minimal in-memory UI structure cues while YouTube Shorts restriction is active, never captures screenshots, never logs keystrokes, and never stores or uploads watch history, search queries, video titles, or comments.</string>
     <string name="health_card_title">App Enforcement Status</string>
     <string name="health_badge_active">Enabled &amp; Connected</string>
     <string name="health_badge_disconnected">Enabled · Disconnected</string>
@@ -29,7 +29,7 @@
     <string name="health_desc_disconnected">MIZAN accessibility permission is enabled, but the system service is currently disconnected or interrupted. Open Accessibility Settings or check battery optimization to restore enforcement.</string>
     <string name="health_desc_disabled">MIZAN cannot automatically grant accessibility access. Enable Mizan App Restriction Monitor in Android Accessibility Settings to enforce selected app restrictions.</string>
     <string name="health_desc_unavailable">MIZAN could not verify system accessibility status or local rule state. Enforcement fails safely without blocking apps until state recovers.</string>
-    <string name="health_privacy_note">Privacy promise: MIZAN observes only foreground package transitions. It never reads window text, messages, passwords, or screenshots, and sends zero data off-device.</string>
+    <string name="health_privacy_note">Privacy promise: MIZAN observes foreground package transitions and, only when optional YouTube Shorts restriction is enabled in an active commitment, checks minimal in-memory YouTube player UI cues. It never stores or uploads watch history, search queries, video titles, passwords, or screenshots.</string>
     <string name="health_open_settings_button">Open Accessibility Settings</string>
     <string name="health_open_settings_error">Unable to open Android Accessibility Settings on this device.</string>
 
@@ -76,12 +76,13 @@
     <string name="vpn_desc_another_vpn">Another VPN is currently active on this device. Android permits only one active VPN at a time, so MIZAN DNS filtering is inactive.</string>
     <string name="vpn_desc_error">Local DNS filtering encountered an error and stopped safely. App restriction enforcement and usage measurement remain active.</string>
     <string name="vpn_disclosure_title">Before Enabling Local VPN Filtering</string>
-    <string name="vpn_disclosure_body">• MIZAN uses Android VPN permission strictly for local on-device DNS filtering.\n• Android allows only one active VPN at a time; enabling MIZAN may conflict with or displace another active VPN.\n• Filtering is domain-based only — not HTTPS URL-path or page-content filtering.\n• Encrypted DNS (Android Private DNS / DoT and browser DNS-over-HTTPS / DoH), IPv6 DNS servers or IPv6-only networks (MIZAN tunnels IPv4 DNS only), hard-coded IPs, and proxies can circumvent local DNS filtering.\n• Ordinary browsing traffic is NOT routed through a remote MIZAN server.\n• Shared domains (such as shared CDNs) can cause legitimate services to become inaccessible.</string>
+    <string name="vpn_disclosure_body">• MIZAN uses Android VPN permission strictly for local on-device DNS filtering.\n• Android allows only one active VPN at a time; enabling MIZAN may conflict with or displace another active VPN.\n• Filtering is domain-based only — not HTTPS URL-path or page-content filtering.\n• Encrypted DNS (Android Private DNS / DoT and browser DNS-over-HTTPS / DoH), hard-coded IPs, and proxies can circumvent local DNS filtering. Some banking or DRM apps also restrict access whenever any Android VPN is active.\n• Ordinary browsing traffic is NOT routed through a remote MIZAN server; allowed queries forward to your active network\'s IPv4 or IPv6 DNS resolvers.\n• Shared domains (such as shared CDNs) can cause legitimate services to become inaccessible.</string>
     <string name="vpn_consent_checkbox_label">I understand how MIZAN local DNS filtering works and its limitations.</string>
     <string name="vpn_enable_start_button">Enable &amp; Start Local DNS Filter</string>
     <string name="vpn_stop_button">Stop Local DNS Filter</string>
-    <string name="vpn_private_dns_warning">Warning: Android Private DNS (encrypted DNS-over-TLS) appears active on your network. Encrypted DNS bypasses local UDP port-53 VPN DNS filtering unless disabled in Android Network settings.</string>
-    <string name="vpn_upstream_info_format">Active network IPv4 DNS servers detected: %1$d (used strictly for allowed queries)</string>
+    <string name="vpn_private_dns_warning">Warning: Android Private DNS (encrypted DNS-over-TLS) appears active on your network. Encrypted DNS bypasses local UDP/TCP port-53 VPN DNS filtering unless disabled in Android Network settings.</string>
+    <string name="vpn_upstream_info_format">Active network DNS resolvers detected: %1$d (used strictly for allowed queries)</string>
+    <string name="vpn_session_stats_format">Session queries — Forwarded: %1$d · Blocked locally: %2$d · Upstream failed: %3$d</string>
 
     <!-- Blocking Screen -->
     <string name="blocking_active_badge">Restriction Active</string>
@@ -199,7 +200,7 @@
     <string name="review_duration_title">Duration &amp; Lifecycle</string>
     <string name="review_duration_body">7 full days (168 hours from activation). Does not auto-renew at completion. Allowance and rules lock once activated.</string>
     <string name="review_limitations_title">Enforcement &amp; Measurement Limitations</string>
-    <string name="review_limitations_body">App blocking and foreground usage measurement depend on Android Accessibility Settings (and optional Usage Access) and OEM background behavior. If website filtering is enabled, local DNS filtering requires user-consented Android VPN authorization, covers IPv4 DNS domains only (not URL paths, page content, Private DNS / DoT, DNS-over-HTTPS, IPv6 DNS networks, proxies, or hard-coded IPs), and respects Android\'s one-active-VPN limit.</string>
+    <string name="review_limitations_body">App blocking and foreground usage measurement depend on Android Accessibility Settings (and optional Usage Access) and OEM background behavior. If website filtering is enabled, local DNS filtering requires user-consented Android VPN authorization, covers domain-level DNS lookups only (not URL paths, page content, Private DNS / DoT, DNS-over-HTTPS, proxies, or hard-coded IPs), and respects Android\'s one-active-VPN limit.</string>
     <string name="review_agreement_label">I have reviewed the exact rules and current limitations, and I deliberately agree to activate this 7-day commitment.</string>
     <string name="review_activate_button">Activate 7-Day Commitment</string>
 
@@ -263,7 +264,7 @@
     <string name="settings_dataset_check_updates_button">Check for Updates</string>
     <string name="settings_dataset_import_button">Import Signed Package (.json)</string>
     <string name="settings_dataset_rollback_format">Roll Back to v%1$d</string>
-    <string name="settings_dataset_limitations_note">DNS filtering limitations: Private DNS (DoT), browser DNS-over-HTTPS (DoH), IPv6 DNS / IPv6-only networks (MIZAN tunnels IPv4 DNS only), proxies, hard-coded IPs, and another active VPN can bypass or conflict with local DNS filtering.</string>
+    <string name="settings_dataset_limitations_note">DNS filtering limitations: Private DNS (DoT), browser DNS-over-HTTPS (DoH), IPv6-only routes, proxies, hard-coded IPs, and another active VPN can bypass or conflict with local DNS filtering; some banking apps also restrict connections while any VPN is active.</string>
     <string name="settings_privacy_title">Local-Data Privacy Guarantee</string>
     <string name="settings_privacy_body">MIZAN stores all commitments, rules, and preferences exclusively in local Room and DataStore storage (excluded from cloud backup). MIZAN never stores DNS query history or browsing logs, and includes zero accounts, cloud sync, analytics, ads, or remote servers.</string>
     <string name="settings_onboarding_revisit_button">Review Onboarding &amp; Permission Guide</string>
@@ -343,4 +344,90 @@
     <string name="dashboard_progress_days_format">Day %1$d of 7 · %2$s remaining</string>
     <string name="dashboard_progress_ended_label">7-day period complete (100%)</string>
     <string name="review_limitations_slides_title">Before You Agree: Rules &amp; Android Limits</string>
+
+    <!-- Minimal 5-Stage Onboarding & Progressive Disclosure -->
+    <string name="onboarding_stage_format">Step %1$d of 5</string>
+    <string name="onboarding_skip_button">Skip to Balance</string>
+    <string name="onboarding_intro_headline">Intentional technology use</string>
+    <string name="onboarding_intro_subtitle">Set calm, voluntary 7-day boundaries on your device—no accounts, feeds, or tracking.</string>
+    <string name="onboarding_intro_point_1">Choose Strict, Scheduled, or Hybrid limits with an allowlist for essentials.</string>
+    <string name="onboarding_intro_point_2">Rules lock for 7 days only after you review them and explicitly agree.</string>
+    <string name="onboarding_intro_point_3">Everything stays offline in local storage; nothing auto-renews at day 7.</string>
+    <string name="onboarding_intro_privacy_toggle">How MIZAN handles your data</string>
+    <string name="onboarding_intro_start_button">Get Started</string>
+
+    <string name="onboarding_permissions_headline">Permissions &amp; why they are needed</string>
+    <string name="onboarding_permissions_subtitle">Grant only what your chosen restrictions need. You can skip and enable these later in Settings.</string>
+    <string name="onboarding_perm_a11y_title">App Restriction (Accessibility)</string>
+    <string name="onboarding_perm_a11y_short">Required to detect restricted apps and show the pause screen.</string>
+    <string name="onboarding_perm_a11y_detail">Observes foreground package transitions and, only when you enable optional YouTube Shorts restriction, inspects minimal in-memory YouTube player layout cues to detect the Shorts player. Never stores or uploads watch history, titles, queries, passwords, or screenshots.</string>
+    <string name="onboarding_perm_usage_title">Usage Access (Optional)</string>
+    <string name="onboarding_perm_usage_short">Reconciles Hybrid daily allowance if the app is restarted.</string>
+    <string name="onboarding_perm_usage_detail">Reads local foreground/background timestamps only for restricted apps inside your active commitment window.</string>
+    <string name="onboarding_perm_vpn_title">Website Protection (Local VPN, Optional)</string>
+    <string name="onboarding_perm_vpn_short">Filters blocked domain lookups locally on this device.</string>
+    <string name="onboarding_perm_vpn_detail">Domain-level DNS filtering only (no remote VPN server, no URL-path inspection, and subject to Android\'s single-VPN limit).</string>
+    <string name="onboarding_perm_authorize_vpn">Authorize VPN</string>
+    <string name="onboarding_perm_authorized">Authorized</string>
+    <string name="onboarding_perm_why_toggle">Details &amp; privacy</string>
+    <string name="onboarding_permissions_next_button">Continue to Setup</string>
+
+    <string name="onboarding_config_headline">Configure your 7-day plan</string>
+    <string name="onboarding_config_subtitle">Pick your mode, apps, and optional website categories. Rules stay inactive until you agree.</string>
+    <string name="onboarding_config_next_button">Review Plan</string>
+    <string name="onboarding_config_skip_save_button">Save Draft &amp; Skip</string>
+
+    <string name="onboarding_review_headline">Review your configuration</string>
+    <string name="onboarding_review_subtitle">Verify every rule below. Nothing starts until the final agreement step.</string>
+    <string name="onboarding_review_limits_toggle">Android limits &amp; local DNS scope</string>
+    <string name="onboarding_review_next_button">Continue to Agreement</string>
+
+    <string name="onboarding_agreement_headline">7-day commitment agreement</string>
+    <string name="onboarding_agreement_subtitle">Activating locks your rules and daily allowance for 7 full days (168 hours) with no auto-renewal.</string>
+    <string name="onboarding_agreement_checkbox">I have reviewed my configuration and deliberately agree to activate this 7-day commitment.</string>
+    <string name="onboarding_agreement_activate_button">Activate 7-Day Commitment</string>
+    <string name="onboarding_agreement_save_exit_button">Save Draft &amp; Go to Balance</string>
+
+    <!-- Progressive Disclosure & Dashboard Operational Labels -->
+    <string name="disclosure_show_details">Details &amp; privacy</string>
+    <string name="disclosure_active_rules">Active rules &amp; schedule</string>
+    <string name="disclosure_system_health">System health &amp; controls</string>
+    <string name="disclosure_insights_details">7-day trend &amp; baseline</string>
+    <string name="disclosure_history_format">Recent commitments (%1$d)</string>
+    <string name="disclosure_custom_app_add">Add app manually by package ID</string>
+    <string name="disclosure_allowlist_format">Essential allowlist (%1$d selected)</string>
+    <string name="disclosure_custom_domains">Custom domain rules (%1$d)</string>
+    <string name="disclosure_dns_limits">Local DNS scope &amp; limitations</string>
+    <string name="disclosure_pin_details">How local PIN security works</string>
+    <string name="disclosure_removal_details">About 24-hour cooling-off &amp; limits</string>
+    <string name="disclosure_app_scope_info">App, build &amp; local-only scope</string>
+    <string name="disclosure_commitment_rules_help">How 7-day commitments &amp; midnight resets work</string>
+
+    <string name="dashboard_readiness_title">Protection Status</string>
+    <string name="dashboard_app_protection_label">App Restrictions</string>
+    <string name="dashboard_web_protection_label">Website Protection</string>
+    <string name="status_not_configured">Not Configured</string>
+    <string name="status_configured_action_needed">Configured · Action Needed</string>
+    <string name="status_enabled_not_operational">Enabled · Not Operational</string>
+    <string name="status_operational">Operational</string>
+    <string name="status_unavailable">Unavailable</string>
+
+    <!-- Grouped Settings Domain Headers -->
+    <string name="settings_domain_system_health">System Health</string>
+    <string name="settings_domain_website">Website Protection</string>
+    <string name="settings_domain_commitment">Commitment, Schedule &amp; Allowance</string>
+    <string name="settings_domain_security">Security</string>
+    <string name="settings_domain_preferences">Preferences &amp; Reference</string>
+    <string name="settings_open_setup_button">Open Commitment Setup</string>
+
+    <!-- YouTube Shorts Selective Enforcement -->
+    <string name="youtube_shorts_restricted_feedback">YouTube Shorts are restricted by MIZAN. You can continue watching normal YouTube videos.</string>
+    <string name="setup_youtube_shorts_title">YouTube Shorts Restriction</string>
+    <string name="setup_youtube_shorts_toggle_label">Block YouTube Shorts while keeping normal YouTube accessible</string>
+    <string name="setup_youtube_shorts_short_desc">Automatically returns out of active YouTube Shorts (including shared Shorts links) while Home, Search, Subscriptions, channel pages, comments, and normal long-form videos stay available.</string>
+    <string name="setup_youtube_shorts_how_toggle">How Shorts detection &amp; limits work</string>
+    <string name="setup_youtube_shorts_how_body">• Detection combines multiple in-memory UI structure cues inside YouTube to distinguish the active Shorts player from Home, Search, or normal videos.\n• Privacy: Inspection runs strictly in memory only when enabled in an active commitment. MIZAN never stores, logs, or uploads video titles, search queries, comments, or watch history.\n• Honest limitation: Future YouTube app updates can change layout structure and affect detection reliability. This feature uses Android Accessibility permission to perform a Back navigation and is best-effort rather than tamper-proof.</string>
+    <string name="settings_youtube_shorts_locked_badge">Locked During Active Commitment</string>
+    <string name="settings_youtube_shorts_locked_note">YouTube Shorts restriction cannot be changed while a 7-day commitment is active.</string>
+    <string name="settings_youtube_shorts_draft_note">Updates your local commitment draft (applies once you review, explicitly agree, and activate).</string>
 </resources>

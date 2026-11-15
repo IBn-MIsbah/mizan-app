@@ -34,6 +34,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.R
 import com.example.core.designsystem.component.ContextualGuideSheet
 import com.example.core.designsystem.component.ContextualHelpButton
+import com.example.core.designsystem.component.MizanExpandableSection
 import com.example.core.designsystem.component.MizanFlowTopBar
 import com.example.core.designsystem.component.MizanStatusBadge
 import com.example.core.designsystem.component.MizanSurfaceCard
@@ -201,7 +202,12 @@ fun CommitmentCompletionScreen(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurface,
               )
-              RulesSummaryBlock(rules = completed.rules)
+              MizanExpandableSection(
+                title = stringResource(R.string.disclosure_active_rules),
+                testTag = "completion_rules_toggle",
+              ) {
+                RulesSummaryBlock(rules = completed.rules)
+              }
             }
           }
 

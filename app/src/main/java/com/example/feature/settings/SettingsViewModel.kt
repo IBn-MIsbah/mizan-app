@@ -15,6 +15,8 @@ import com.example.domain.lifecycle.RemovalRequestStateMachine
 import com.example.domain.model.AccountabilityMetadata
 import com.example.domain.model.AppPreferences
 import com.example.domain.model.Commitment
+import com.example.domain.model.CommitmentId
+import com.example.domain.model.CommitmentRules
 import com.example.domain.model.DatasetAvailabilityStatus
 import com.example.domain.model.DatasetSeedDefaults
 import com.example.domain.model.DatasetStatusEvaluator
@@ -22,6 +24,7 @@ import com.example.domain.model.FilterDatasetMetadata
 import com.example.domain.model.RemovalRequest
 import com.example.domain.model.RemovalRequestId
 import com.example.domain.model.RemovalRequestStatus
+import com.example.domain.model.RestrictionMode
 import com.example.domain.model.SecurityEvent
 import com.example.domain.model.SecurityEventId
 import com.example.domain.model.SecurityEventType
@@ -113,6 +116,8 @@ data class SettingsSummary(
   val datasetSyncSnapshot: DatasetSyncUiSnapshot = DatasetSyncUiSnapshot(),
   val pinState: PinManagementUiState = PinManagementUiState(),
   val removalState: RemovalRequestUiState = RemovalRequestUiState(),
+  val youtubeShortsBlocked: Boolean = false,
+  val youtubeShortsRuleLocked: Boolean = false,
   val errorMessage: String? = null,
 )
 
@@ -174,10 +179,10 @@ constructor(
       domainFilterRepository.observeDatasets(),
       accountabilityMetadataRepository.observeMetadata(),
       removalRequestRepository.observeLatestRequest(),
-      commitmentRepository.observeActiveCommitment(),
+      commitmentRepository.observeAllCommitments(),
       _evalTick,
-    ) { datasetsResult, metadataResult, removalResult, activeResult, _ ->
-      SecurityDataBundle(datasetsResult, metadataResult, removalResult, activeResult)
+    ) { datasetsResult, metadataResult, removalResult, commitmentsResult, _ ->
+      SecurityDataBundle(datasetsResult, metadataResult, removalResult, commitmentsResult)
     }
 
   private val transientUiFlow =
@@ -217,8 +222,20 @@ constructor(
           }
         val metadata =
           (sec.metadataResult as? PersistenceResult.Success)?.data ?: AccountabilityMetadata()
+        val allCommitments =
+          (sec.commitmentsResult as? PersistenceResult.Success)?.data.orEmpty()
         val activeCommitment =
-          (sec.activeResult as? PersistenceResult.Success)?.data as? Commitment.Active
+          allCommitments.firstOrNull { it is Commitment.Active } as? Commitment.Active
+        val latestDraft =
+          allCommitments.firstOrNull { it is Commitment.Draft } as? Commitment.Draft
+
+        val youtubeShortsBlocked =
+          when {
+            activeCommitment != null -> activeCommitment.rules.blockYouTubeShorts
+            latestDraft != null -> latestDraft.rules.blockYouTubeShorts
+            else -> false
+          }
+        val youtubeShortsRuleLocked = activeCommitment != null
 
         val pinUiState =
           PinManagementUiState(
@@ -254,6 +271,8 @@ constructor(
             datasetSyncSnapshot = transientUi.datasetSync,
             pinState = pinUiState,
             removalState = removalUiState,
+            youtubeShortsBlocked = youtubeShortsBlocked,
+            youtubeShortsRuleLocked = youtubeShortsRuleLocked,
             errorMessage = transientUi.errorMessage,
           )
         )
@@ -366,6 +385,58 @@ constructor(
       val result = userPreferencesRepository.setFirstUseGuideCompleted(false)
       if (result is PersistenceResult.Failure) {
         _errorMessage.value = result.error.toDisplayMessage()
+      }
+    }
+  }
+
+  fun setYouTubeShortsBlocked(enabled: Boolean) {
+    _errorMessage.value = null
+    viewModelScope.launch {
+      when (val res = commitmentRepository.observeAllCommitments().first()) {
+        is PersistenceResult.Failure -> {
+          _errorMessage.value = res.error.toDisplayMessage()
+        }
+        is PersistenceResult.Success -> {
+          val active = res.data.firstOrNull { it is Commitment.Active }
+          if (active != null) {
+            _errorMessage.value =
+              "YouTube Shorts restriction is locked while a 7-day commitment is active."
+            return@launch
+          }
+          val latestDraft = res.data.firstOrNull { it is Commitment.Draft } as? Commitment.Draft
+          val updatedDraft =
+            if (latestDraft != null) {
+              when (
+                val updated =
+                  CommitmentStateMachine.updateDraftRules(
+                    latestDraft,
+                    latestDraft.rules.copy(blockYouTubeShorts = enabled),
+                  )
+              ) {
+                is CommitmentResult.Success -> updated.commitment
+                is CommitmentResult.Failure -> null
+              }
+            } else if (enabled) {
+              CommitmentStateMachine.createDraft(
+                id = CommitmentId(idGenerator.nextId()),
+                rules =
+                  CommitmentRules(
+                    mode = RestrictionMode.HYBRID,
+                    restrictedApps = emptySet(),
+                    blockYouTubeShorts = true,
+                  ),
+                now = timeProvider.currentWallClock(),
+              )
+            } else {
+              null
+            }
+          if (updatedDraft != null) {
+            val saveRes = commitmentRepository.saveCommitment(updatedDraft)
+            if (saveRes is PersistenceResult.Failure) {
+              _errorMessage.value = saveRes.error.toDisplayMessage()
+            }
+          }
+        }
       }
     }
   }
@@ -764,7 +835,7 @@ constructor(
     val datasetsResult: PersistenceResult<List<FilterDatasetMetadata>>,
     val metadataResult: PersistenceResult<AccountabilityMetadata>,
     val removalResult: PersistenceResult<RemovalRequest?>,
-    val activeResult: PersistenceResult<Commitment?>,
+    val commitmentsResult: PersistenceResult<List<Commitment>>,
   )
 
   private data class PinDraftInternal(

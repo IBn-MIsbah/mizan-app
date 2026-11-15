@@ -191,6 +191,7 @@ internal object PersistenceMappers {
         websiteFilteringEnabled = rules.websiteFilteringEnabled,
         blockedDomainCategoriesCsv =
           rules.blockedDomainCategories.sortedBy { it.name }.joinToString(",") { it.name },
+        blockYouTubeShorts = rules.blockYouTubeShorts,
       )
 
     val restrictedAppEntities =
@@ -338,6 +339,7 @@ internal object PersistenceMappers {
           websiteFilteringEnabled = rulesEntity.websiteFilteringEnabled,
           blockedDomains = domainBlockedDomains,
           blockedDomainCategories = domainBlockedCategories,
+          blockYouTubeShorts = rulesEntity.blockYouTubeShorts,
         )
       } catch (e: IllegalArgumentException) {
         throw CorruptLocalDataException("Invalid commitment rules values", e)

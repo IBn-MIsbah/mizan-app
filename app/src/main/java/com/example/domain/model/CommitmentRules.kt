@@ -29,6 +29,7 @@ data class CommitmentRules(
   val websiteFilteringEnabled: Boolean = false,
   val blockedDomains: Set<BlockedDomain> = emptySet(),
   val blockedDomainCategories: Set<DomainCategory> = emptySet(),
+  val blockYouTubeShorts: Boolean = false,
 ) {
   init {
     require(dailyAllowance.isFinite() && !dailyAllowance.isNegative()) {

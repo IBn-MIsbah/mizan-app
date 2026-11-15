@@ -145,6 +145,7 @@ class MizanMigration2To3Test {
             DatabaseModule.MIGRATION_1_2,
             DatabaseModule.MIGRATION_2_3,
             DatabaseModule.MIGRATION_3_4,
+            DatabaseModule.MIGRATION_4_5,
           )
           .allowMainThreadQueries()
           .build()

@@ -216,4 +216,77 @@ class HomeViewModelTest {
     assertTrue(activeStatus.usageCoverage is DashboardUsageCoverage.Measured)
     job.cancel()
   }
+
+  @Test
+  fun `dashboard distinguishes Not Configured, Configured Action Needed, Enabled Not Operational, Operational, and Unavailable readiness states`() =
+    runTest {
+      val repo = FakeCommitmentRepository()
+      val viewModel = createViewModel(repo)
+      val job = launch { viewModel.uiState.collect {} }
+      advanceUntilIdle()
+
+      // 1. No commitment -> NOT_CONFIGURED
+      var content = (viewModel.uiState.value as DashboardUiState.Success).content
+      assertEquals(OperationalReadiness.NOT_CONFIGURED, content.readiness.appStatus)
+      assertEquals(OperationalReadiness.NOT_CONFIGURED, content.readiness.webStatus)
+
+      // 2. Active commitment with restricted app & website domain filtering, Accessibility DISABLED & VPN PERMISSION_REQUIRED
+      val webAndAppRules =
+        rules.copy(
+          websiteFilteringEnabled = true,
+          blockedDomainCategories = setOf(com.example.domain.model.DomainCategory.SOCIAL_MEDIA),
+        )
+      val draft = CommitmentStateMachine.createDraft(CommitmentId("c-ops"), webAndAppRules, timeProvider.wallClock)
+      val active =
+        (CommitmentStateMachine.activate(draft, agreedToExactRules = true, now = timeProvider.wallClock)
+            as CommitmentResult.Success)
+          .commitment
+      healthMonitor.systemPermissionStatus = AccessibilityPermissionStatus.DISABLED
+      healthMonitor.setServiceConnected(false)
+      vpnFilterMonitor.setSnapshot(
+        com.example.platform.vpn.VpnFilterSnapshot(
+          status = com.example.platform.vpn.VpnServiceLifecycleStatus.PERMISSION_REQUIRED,
+          hasActiveWebsiteCommitment = true,
+        )
+      )
+      repo.saveCommitment(active)
+      advanceUntilIdle()
+
+      content = (viewModel.uiState.value as DashboardUiState.Success).content
+      assertEquals(OperationalReadiness.CONFIGURED_ACTION_NEEDED, content.readiness.appStatus)
+      assertEquals(OperationalReadiness.CONFIGURED_ACTION_NEEDED, content.readiness.webStatus)
+
+      // 3. Accessibility enabled but service disconnected + VPN STARTING -> ENABLED_NOT_OPERATIONAL
+      healthMonitor.systemPermissionStatus = AccessibilityPermissionStatus.ENABLED
+      healthMonitor.setServiceConnected(false)
+      vpnFilterMonitor.onServiceStarting()
+      viewModel.refresh()
+      advanceUntilIdle()
+
+      content = (viewModel.uiState.value as DashboardUiState.Success).content
+      assertEquals(OperationalReadiness.ENABLED_NOT_OPERATIONAL, content.readiness.appStatus)
+      assertEquals(OperationalReadiness.ENABLED_NOT_OPERATIONAL, content.readiness.webStatus)
+
+      // 4. Both active/established -> OPERATIONAL
+      healthMonitor.setServiceConnected(true)
+      vpnFilterMonitor.onTunnelEstablished(upstreamDnsCount = 2, isPrivateDnsActive = false)
+      viewModel.refresh()
+      advanceUntilIdle()
+
+      content = (viewModel.uiState.value as DashboardUiState.Success).content
+      assertEquals(OperationalReadiness.OPERATIONAL, content.readiness.appStatus)
+      assertEquals(OperationalReadiness.OPERATIONAL, content.readiness.webStatus)
+
+      // 5. Accessibility UNAVAILABLE + VPN DEGRADED_ERROR -> UNAVAILABLE
+      healthMonitor.systemPermissionStatus = AccessibilityPermissionStatus.UNAVAILABLE
+      healthMonitor.setServiceConnected(false)
+      vpnFilterMonitor.onTunnelError("Error")
+      viewModel.refresh()
+      advanceUntilIdle()
+
+      content = (viewModel.uiState.value as DashboardUiState.Success).content
+      assertEquals(OperationalReadiness.UNAVAILABLE, content.readiness.appStatus)
+      assertEquals(OperationalReadiness.UNAVAILABLE, content.readiness.webStatus)
+      job.cancel()
+    }
 }

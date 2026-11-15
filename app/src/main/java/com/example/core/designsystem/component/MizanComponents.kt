@@ -1,7 +1,15 @@
 package com.example.core.designsystem.component
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,6 +25,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Balance
+import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -27,14 +36,20 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.example.R
@@ -55,13 +70,13 @@ fun MizanBrandHeader(modifier: Modifier = Modifier) {
     shape = MaterialTheme.shapes.large,
     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
   ) {
-    Box(modifier = Modifier.background(gradient).padding(20.dp)) {
+    Box(modifier = Modifier.background(gradient).padding(16.dp)) {
       Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
       ) {
         Surface(
-          modifier = Modifier.size(52.dp).clip(CircleShape),
+          modifier = Modifier.size(48.dp).clip(CircleShape),
           color = MaterialTheme.colorScheme.primary,
           contentColor = MaterialTheme.colorScheme.onPrimary,
         ) {
@@ -69,7 +84,7 @@ fun MizanBrandHeader(modifier: Modifier = Modifier) {
             Icon(
               imageVector = Icons.Filled.Balance,
               contentDescription = stringResource(R.string.cd_brand_emblem),
-              modifier = Modifier.size(26.dp),
+              modifier = Modifier.size(24.dp),
             )
           }
         }
@@ -113,10 +128,120 @@ fun MizanSurfaceCard(
     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f)),
   ) {
     Column(
-      modifier = Modifier.padding(20.dp),
-      verticalArrangement = Arrangement.spacedBy(12.dp),
+      modifier = Modifier.padding(16.dp),
+      verticalArrangement = Arrangement.spacedBy(10.dp),
       content = content,
     )
+  }
+}
+
+@Composable
+fun MizanSectionHeader(
+  title: String,
+  modifier: Modifier = Modifier,
+  subtitle: String? = null,
+) {
+  Column(
+    modifier = modifier.fillMaxWidth().padding(top = 4.dp),
+    verticalArrangement = Arrangement.spacedBy(2.dp),
+  ) {
+    Text(
+      text = title,
+      style = MaterialTheme.typography.titleMedium,
+      color = MaterialTheme.colorScheme.primary,
+    )
+    if (subtitle != null) {
+      Text(
+        text = subtitle,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+      )
+    }
+  }
+}
+
+@Composable
+fun MizanExpandableSection(
+  title: String,
+  modifier: Modifier = Modifier,
+  subtitle: String? = null,
+  initiallyExpanded: Boolean = false,
+  testTag: String,
+  content: @Composable ColumnScope.() -> Unit,
+) {
+  var expanded by rememberSaveable(testTag) { mutableStateOf(initiallyExpanded) }
+  val reducedMotion = LocalMizanReducedMotion.current
+  val chevronRotation by
+    animateFloatAsState(
+      targetValue = if (expanded) 180f else 0f,
+      animationSpec = tween(durationMillis = if (reducedMotion) 0 else 200),
+      label = "expandable_chevron_$testTag",
+    )
+
+  Column(modifier = modifier.fillMaxWidth()) {
+    Row(
+      modifier =
+        Modifier.fillMaxWidth()
+          .clip(MaterialTheme.shapes.small)
+          .minimumInteractiveComponentSize()
+          .clickable(role = Role.Button) { expanded = !expanded }
+          .padding(vertical = 8.dp, horizontal = 4.dp)
+          .testTag(testTag),
+      verticalAlignment = Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+      Column(
+        modifier = Modifier.weight(1f).padding(end = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+      ) {
+        Text(
+          text = title,
+          style = MaterialTheme.typography.labelLarge,
+          color = MaterialTheme.colorScheme.primary,
+        )
+        if (subtitle != null && !expanded) {
+          Text(
+            text = subtitle,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+          )
+        }
+      }
+      Icon(
+        imageVector = Icons.Outlined.ExpandMore,
+        contentDescription = if (expanded) "Collapse $title" else "Expand $title",
+        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.size(20.dp).rotate(chevronRotation),
+      )
+    }
+
+    if (reducedMotion) {
+      if (expanded) {
+        Column(
+          modifier =
+            Modifier.fillMaxWidth()
+              .padding(top = 6.dp, start = 4.dp, end = 4.dp, bottom = 4.dp)
+              .testTag("${testTag}_content"),
+          verticalArrangement = Arrangement.spacedBy(8.dp),
+          content = content,
+        )
+      }
+    } else {
+      AnimatedVisibility(
+        visible = expanded,
+        enter = expandVertically(tween(220)) + fadeIn(tween(180)),
+        exit = shrinkVertically(tween(180)) + fadeOut(tween(140)),
+      ) {
+        Column(
+          modifier =
+            Modifier.fillMaxWidth()
+              .padding(top = 6.dp, start = 4.dp, end = 4.dp, bottom = 4.dp)
+              .testTag("${testTag}_content"),
+          verticalArrangement = Arrangement.spacedBy(8.dp),
+          content = content,
+        )
+      }
+    }
   }
 }
 
@@ -179,14 +304,14 @@ fun MizanStatusBadge(
     contentColor = contentColor,
   ) {
     Row(
-      modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+      modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
       horizontalArrangement = Arrangement.spacedBy(6.dp),
       verticalAlignment = Alignment.CenterVertically,
     ) {
       Icon(
         imageVector = icon,
         contentDescription = stringResource(R.string.cd_status_indicator),
-        modifier = Modifier.size(16.dp),
+        modifier = Modifier.size(15.dp),
       )
       Text(
         text = label,

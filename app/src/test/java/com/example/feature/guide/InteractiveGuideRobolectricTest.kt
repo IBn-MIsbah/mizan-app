@@ -32,16 +32,20 @@ import com.example.domain.model.AppId
 import com.example.domain.model.AppPreferences
 import com.example.domain.model.CommitmentId
 import com.example.domain.model.CommitmentRules
+import com.example.domain.model.DailyUsage
 import com.example.domain.model.RestrictedApp
 import com.example.domain.model.RestrictionMode
 import com.example.domain.time.DomainDate
 import com.example.domain.time.DomainTime
 import com.example.domain.time.WallClockPoint
 import com.example.feature.home.DashboardContent
+import com.example.feature.home.DashboardProtectionReadiness
 import com.example.feature.home.DashboardStatus
 import com.example.feature.home.DashboardUiState
 import com.example.feature.home.HomeScreen
+import com.example.feature.home.OperationalReadiness
 import com.example.feature.onboarding.OnboardingScreen
+import com.example.feature.onboarding.OnboardingStage
 import com.example.feature.onboarding.OnboardingUiState
 import com.example.feature.review.CommitmentReviewScreen
 import com.example.feature.review.CommitmentReviewUiState
@@ -233,78 +237,69 @@ class InteractiveGuideRobolectricTest {
     }
 
     composeRule.onNodeWithTag("guide_topic_counter").assertTextContains("Topic 2 of 17")
-    composeRule.onNodeWithTag("guide_active_topic_title").assertTextContains("Purpose & Operating Modes")
+    composeRule
+      .onNodeWithTag("guide_active_topic_title")
+      .assertTextContains("Purpose & Operating Modes", substring = true)
 
-    composeRule.onNodeWithTag("guide_mode_chip_strict").performClick()
-    composeRule.onNodeWithText("Protection coverage: Full 7-day cycle").assertIsDisplayed()
+    composeRule
+      .onNodeWithTag("guide_screen_list")
+      .performScrollToNode(hasTestTag("guide_mode_chip_strict"))
+    composeRule.onNodeWithTag("guide_mode_chip_strict").performScrollTo().performClick()
+    composeRule.onNodeWithText("Protection coverage: Full 7-day cycle").performScrollTo().assertIsDisplayed()
 
-    composeRule.onNodeWithTag("guide_reduce_motion_switch").performClick()
+    composeRule
+      .onNodeWithTag("guide_screen_list")
+      .performScrollToNode(hasTestTag("guide_progress_card"))
+    composeRule.onNodeWithTag("guide_reduce_motion_switch").performScrollTo().performClick()
     assertTrue(reduceMotionValue)
 
-    composeRule.onNodeWithTag("guide_skip_walkthrough_button").performClick()
+    composeRule.onNodeWithTag("guide_skip_walkthrough_button").performScrollTo().performClick()
     assertTrue(skipped)
   }
 
   @Test
-  fun `onboarding slide deck advances through 4 slides and exposes walkthrough and continue actions`() {
-    var continueClicked = false
-    var walkthroughOpened = false
+  fun `onboarding screen renders 5 stages, collapsed privacy disclosure, and skip action`() {
+    var skipClicked = false
+    var nextClicked = false
 
     composeRule.setContent {
       MizanTheme {
         CompositionLocalProvider(LocalMizanReducedMotion provides true) {
           OnboardingScreen(
-            uiState = OnboardingUiState.Ready(revisitFromSettings = false),
-            onContinue = { continueClicked = true },
+            uiState =
+              OnboardingUiState.Ready(
+                stage = OnboardingStage.INTRODUCTION,
+                revisitFromSettings = false,
+              ),
+            onContinue = { skipClicked = true },
             onNavigateBack = {},
-            onOpenUserGuide = { _, walkthrough -> if (walkthrough) walkthroughOpened = true },
+            onAdvanceFromIntroduction = { nextClicked = true },
           )
         }
       }
     }
 
-    composeRule.onNodeWithTag("onboarding_slide_deck_counter").assertTextContains("Slide 1 of 4")
-    composeRule.onNodeWithTag("onboarding_commitment_card").assertIsDisplayed()
+    composeRule.onNodeWithTag("onboarding_stage_indicator").assertTextContains("Step 1 of 5")
+    composeRule.onNodeWithTag("onboarding_intro_card").assertIsDisplayed()
+    composeRule.onNodeWithTag("onboarding_intro_privacy_toggle_content").assertDoesNotExist()
+    composeRule.onNodeWithTag("onboarding_intro_privacy_toggle").performScrollTo().performClick()
+    composeRule.onNodeWithTag("onboarding_intro_privacy_toggle_content").assertExists()
 
     composeRule
       .onNodeWithTag("onboarding_screen_list")
-      .performScrollToNode(hasTestTag("onboarding_slide_deck_next_button"))
-    composeRule.onNodeWithTag("onboarding_slide_deck_next_button").performClick()
-    composeRule.onNodeWithTag("onboarding_slide_deck_counter").assertTextContains("Slide 2 of 4")
+      .performScrollToNode(hasTestTag("onboarding_stage_next_button"))
+    composeRule.onNodeWithTag("onboarding_stage_next_button").performClick()
+    assertTrue(nextClicked)
 
     composeRule
       .onNodeWithTag("onboarding_screen_list")
-      .performScrollToNode(hasTestTag("onboarding_slide_deck_next_button"))
-    composeRule.onNodeWithTag("onboarding_slide_deck_next_button").performClick()
-    composeRule
-      .onNodeWithTag("onboarding_screen_list")
-      .performScrollToNode(hasTestTag("onboarding_privacy_card"))
-    composeRule.onNodeWithTag("onboarding_privacy_card").assertIsDisplayed()
-
-    composeRule
-      .onNodeWithTag("onboarding_screen_list")
-      .performScrollToNode(hasTestTag("onboarding_slide_deck_next_button"))
-    composeRule.onNodeWithTag("onboarding_slide_deck_next_button").performClick()
-    composeRule
-      .onNodeWithTag("onboarding_screen_list")
-      .performScrollToNode(hasTestTag("onboarding_permissions_card"))
-    composeRule.onNodeWithTag("onboarding_permissions_card").assertIsDisplayed()
-
-    composeRule
-      .onNodeWithTag("onboarding_screen_list")
-      .performScrollToNode(hasTestTag("onboarding_open_walkthrough_button"))
-    composeRule.onNodeWithTag("onboarding_open_walkthrough_button").performClick()
-    assertTrue(walkthroughOpened)
-
-    composeRule
-      .onNodeWithTag("onboarding_screen_list")
-      .performScrollToNode(hasTestTag("onboarding_complete_button"))
-    composeRule.onNodeWithTag("onboarding_complete_button").performClick()
-    assertTrue(continueClicked)
+      .performScrollToNode(hasTestTag("onboarding_skip_button"))
+    composeRule.onNodeWithTag("onboarding_skip_button").performClick()
+    assertTrue(skipClicked)
   }
 
   @Test
-  fun `home dashboard displays walkthrough banner, contextual help sheet, and progress indicators`() {
+  fun `home dashboard displays operational readiness badges, progress indicators, and collapsed health`() {
     val active =
       (CommitmentStateMachine.activate(
         commitment =
@@ -312,8 +307,6 @@ class InteractiveGuideRobolectricTest {
         agreedToExactRules = true,
         now = baseTime,
       ) as CommitmentResult.Success).commitment
-    var dismissed = false
-    var openedWalkthrough = false
 
     composeRule.setContent {
       MizanTheme {
@@ -325,13 +318,23 @@ class InteractiveGuideRobolectricTest {
                   status =
                     DashboardStatus.Active(
                       commitment = active,
-                      dailyUsage = null,
+                      dailyUsage =
+                        DailyUsage(
+                          commitmentId = active.id,
+                          date = baseTime.date,
+                          consumed = 15.minutes,
+                        ),
                       remainingAllowance = 15.minutes,
                       hasReachedEnd = false,
                     ),
                   history = listOf(active),
                   isPinEnabled = false,
                   preferences = AppPreferences(firstUseGuideCompleted = false),
+                  readiness =
+                    DashboardProtectionReadiness(
+                      appStatus = OperationalReadiness.OPERATIONAL,
+                      webStatus = OperationalReadiness.CONFIGURED_ACTION_NEEDED,
+                    ),
                 )
               ),
             onRetry = {},
@@ -339,8 +342,6 @@ class InteractiveGuideRobolectricTest {
             onNavigateToReview = {},
             onNavigateToCompletion = {},
             onNavigateToEmergencyTermination = {},
-            onDismissFirstUseGuide = { dismissed = true },
-            onOpenUserGuide = { _, walkthrough -> if (walkthrough) openedWalkthrough = true },
           )
         }
       }
@@ -355,20 +356,20 @@ class InteractiveGuideRobolectricTest {
       .performScrollToNode(hasTestTag("dashboard_active_card"))
     composeRule.onNodeWithTag("dashboard_active_progress_bar").performScrollTo().assertIsDisplayed()
     composeRule.onNodeWithTag("dashboard_allowance_progress_bar").performScrollTo().assertIsDisplayed()
+    composeRule.onNodeWithTag("dashboard_active_rules_toggle_content").assertDoesNotExist()
 
     composeRule
       .onNodeWithTag("home_screen_list")
-      .performScrollToNode(hasTestTag("dashboard_walkthrough_banner_card"))
-    composeRule.onNodeWithTag("dashboard_walkthrough_banner_card").assertIsDisplayed()
-    composeRule.onNodeWithTag("dashboard_start_walkthrough_button").performScrollTo().performClick()
-    assertTrue(openedWalkthrough)
-
-    composeRule.onNodeWithTag("dashboard_dismiss_walkthrough_button").performScrollTo().performClick()
-    assertTrue(dismissed)
+      .performScrollToNode(hasTestTag("dashboard_protection_status_card"))
+    composeRule.onNodeWithTag("dashboard_app_readiness_badge").assertTextContains("Operational")
+    composeRule
+      .onNodeWithTag("dashboard_web_readiness_badge")
+      .assertTextContains("Configured · Action Needed")
+    composeRule.onNodeWithTag("dashboard_system_health_toggle_content").assertDoesNotExist()
   }
 
   @Test
-  fun `review limitations and vpn disclosure use swipeable slide decks and contextual help`() {
+  fun `review screen uses collapsed limitations disclosure and contextual help`() {
     val draft =
       CommitmentStateMachine.createDraft(CommitmentId("c-rev-guide"), sampleRules, baseTime)
 
@@ -398,18 +399,14 @@ class InteractiveGuideRobolectricTest {
 
     composeRule
       .onNodeWithTag("review_screen_list")
-      .performScrollToNode(hasTestTag("review_limitations_slides_deck"))
-    composeRule
-      .onNodeWithTag("review_limitations_slides_deck_counter")
-      .assertTextContains("Slide 1 of 3")
-    composeRule.onNodeWithTag("review_limitations_slides_deck_next_button").performClick()
-    composeRule
-      .onNodeWithTag("review_limitations_slides_deck_counter")
-      .assertTextContains("Slide 2 of 3")
+      .performScrollToNode(hasTestTag("review_limitations_toggle"))
+    composeRule.onNodeWithTag("review_limitations_toggle_content").assertDoesNotExist()
+    composeRule.onNodeWithTag("review_limitations_toggle").performClick()
+    composeRule.onNodeWithTag("review_limitations_toggle_content").assertIsDisplayed()
   }
 
   @Test
-  fun `vpn disclosure slide deck advances cleanly inside health card`() {
+  fun `vpn disclosure uses collapsed section inside health card`() {
     composeRule.setContent {
       MizanTheme {
         CompositionLocalProvider(LocalMizanReducedMotion provides true) {
@@ -433,9 +430,9 @@ class InteractiveGuideRobolectricTest {
       }
     }
 
-    composeRule.onNodeWithTag("test_vpn_disclosure_deck_counter").performScrollTo().assertTextContains("Slide 1 of 3")
-    composeRule.onNodeWithTag("test_vpn_disclosure_deck_next_button").performScrollTo().performClick()
-    composeRule.onNodeWithTag("test_vpn_disclosure_deck_counter").performScrollTo().assertTextContains("Slide 2 of 3")
+    composeRule.onNodeWithTag("test_vpn_limitations_toggle_content").assertDoesNotExist()
+    composeRule.onNodeWithTag("test_vpn_limitations_toggle").performScrollTo().performClick()
+    composeRule.onNodeWithTag("test_vpn_limitations_toggle_content").assertIsDisplayed()
   }
 
   @Test

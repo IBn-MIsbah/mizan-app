@@ -36,8 +36,11 @@ import com.example.domain.repository.InstalledAppsResult
 import com.example.domain.repository.PersistenceResult
 import com.example.domain.time.DomainDayOfWeek
 import com.example.domain.time.DomainTime
+import android.content.Intent
 import com.example.domain.time.TimeProvider
 import com.example.domain.time.WallClockPoint
+import com.example.platform.health.EnforcementHealthMonitor
+import com.example.platform.health.EnforcementHealthSnapshot
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlin.time.Duration.Companion.minutes
@@ -92,6 +95,8 @@ data class DraftEditorState(
   val websiteFilteringEnabled: Boolean = false,
   val blockedDomains: Set<BlockedDomain> = emptySet(),
   val blockedDomainCategories: Set<DomainCategory> = emptySet(),
+  val blockYouTubeShorts: Boolean = false,
+  val accessibilityHealth: EnforcementHealthSnapshot = EnforcementHealthSnapshot(),
   val customDomainInput: String = "",
   val datasetMetadata: List<FilterDatasetMetadata> = DatasetSeedDefaults.defaultMetadata(),
   val datasetEvalEpochMillis: Long = 0L,
@@ -124,6 +129,7 @@ constructor(
   private val installedAppRepository: InstalledAppRepository,
   private val domainFilterRepository: DomainFilterRepository,
   private val accountabilityMetadataRepository: AccountabilityMetadataRepository,
+  private val enforcementHealthMonitor: EnforcementHealthMonitor,
   private val timeProvider: TimeProvider,
   private val idGenerator: IdGenerator,
 ) : ViewModel() {
@@ -136,10 +142,18 @@ constructor(
 
   init {
     refreshInstalledApps()
+    refreshHealth()
     viewModelScope.launch {
       runCatching { domainFilterRepository.ensureDefaultDatasetsInitialized() }
     }
   }
+
+  fun refreshHealth() {
+    enforcementHealthMonitor.refreshSystemStatus()
+  }
+
+  fun createAccessibilitySettingsIntent(): Intent =
+    enforcementHealthMonitor.createAccessibilitySettingsIntent()
 
   fun refreshInstalledApps() {
     viewModelScope.launch {
@@ -171,8 +185,9 @@ constructor(
         commitmentRepository.observeAllCommitments(),
         domainFilterRepository.observeDatasets(),
         accountabilityMetadataRepository.observeMetadata(),
+        enforcementHealthMonitor.healthState,
         editorState,
-      ) { commitmentsResult, datasetsResult, metadataResult, editor ->
+      ) { commitmentsResult, datasetsResult, metadataResult, healthSnapshot, editor ->
         val datasets =
           when (datasetsResult) {
             is PersistenceResult.Success ->
@@ -209,6 +224,8 @@ constructor(
                     websiteFilteringEnabled = latestDraft.rules.websiteFilteringEnabled,
                     blockedDomains = latestDraft.rules.blockedDomains,
                     blockedDomainCategories = latestDraft.rules.blockedDomainCategories,
+                    blockYouTubeShorts = latestDraft.rules.blockYouTubeShorts,
+                    accessibilityHealth = healthSnapshot,
                     datasetMetadata = datasets,
                     datasetEvalEpochMillis = timeProvider.currentWallClock().epochMillis,
                     isPinConfigured = pinConfigured,
@@ -225,6 +242,7 @@ constructor(
                     installedApps = editor.installedApps,
                     installedAppsLoaded = editor.installedAppsLoaded,
                     installedAppsError = editor.installedAppsError,
+                    accessibilityHealth = healthSnapshot,
                     datasetMetadata = datasets,
                     datasetEvalEpochMillis = timeProvider.currentWallClock().epochMillis,
                     isPinConfigured = pinConfigured,
@@ -235,6 +253,7 @@ constructor(
                 CommitmentSetupUiState.Editing(
                   editor.copy(
                     existingDraft = latestDraft,
+                    accessibilityHealth = healthSnapshot,
                     datasetMetadata = datasets,
                     datasetEvalEpochMillis = timeProvider.currentWallClock().epochMillis,
                     isPinConfigured = pinConfigured,
@@ -606,6 +625,16 @@ constructor(
     }
   }
 
+  fun setBlockYouTubeShorts(enabled: Boolean) {
+    updateEditor { current ->
+      current.copy(
+        blockYouTubeShorts = enabled,
+        validationMessages = emptyList(),
+        statusMessage = null,
+      )
+    }
+  }
+
   fun toggleDomainCategory(category: DomainCategory) {
     if (category == DomainCategory.CUSTOM) return
     updateEditor { current ->
@@ -732,6 +761,7 @@ constructor(
       websiteFilteringEnabled = state.websiteFilteringEnabled,
       blockedDomains = state.blockedDomains,
       blockedDomainCategories = state.blockedDomainCategories,
+      blockYouTubeShorts = state.blockYouTubeShorts,
     )
 
   private fun buildOrUpdateDraft(
@@ -759,7 +789,7 @@ constructor(
   private fun mapValidationError(error: RulesValidationError): String =
     when (error) {
       RulesValidationError.RestrictedAppsRequired ->
-        "Select at least one restricted app or configure at least one website filter target before reviewing your commitment."
+        "Select at least one restricted app, enable YouTube Shorts restriction, or configure a website filter target before reviewing your commitment."
       is RulesValidationError.ConflictingAppSelections ->
         "These apps appear in both Restricted and Allowlist (${error.overlappingPackageNames.joinToString(", ")}). Remove the conflict before continuing."
       RulesValidationError.ScheduleWindowsRequiredForScheduledMode ->

@@ -32,6 +32,9 @@ object Ipv4UdpDnsPacketCodec {
     val totalLength = DnsWireCodec.readU16(packet, 2)
     if (totalLength < ihlBytes + UDP_HEADER_SIZE || totalLength > length) return null
 
+    val fragmentFlagsAndOffset = DnsWireCodec.readU16(packet, 6)
+    if ((fragmentFlagsAndOffset and 0x3FFF) != 0) return null
+
     val protocol = packet[9].toInt() and 0xFF
     if (protocol != PROTOCOL_UDP) return null
 

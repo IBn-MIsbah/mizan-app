@@ -41,6 +41,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.example.R
 import com.example.core.designsystem.component.ContextualHelpButton
+import com.example.core.designsystem.component.MizanExpandableSection
 import com.example.core.designsystem.component.MizanStatusBadge
 import com.example.core.designsystem.component.MizanSurfaceCard
 import com.example.core.time.WallClockFormatting
@@ -158,11 +159,16 @@ internal fun AccountabilityPinSettingsCard(
       modifier = Modifier.testTag("settings_pin_status_badge"),
     )
 
-    Text(
-      text = stringResource(R.string.settings_pin_disclosure),
-      style = MaterialTheme.typography.bodySmall,
-      color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
+    MizanExpandableSection(
+      title = stringResource(R.string.disclosure_pin_details),
+      testTag = "settings_pin_details_toggle",
+    ) {
+      Text(
+        text = stringResource(R.string.settings_pin_disclosure),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+      )
+    }
 
     if (pinState.isPinEnabled) {
       OutlinedTextField(
@@ -360,11 +366,16 @@ internal fun VoluntaryRemovalRequestCard(
       }
     }
 
-    Text(
-      text = stringResource(R.string.settings_removal_honest_note),
-      style = MaterialTheme.typography.bodySmall,
-      color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
+    MizanExpandableSection(
+      title = stringResource(R.string.disclosure_removal_details),
+      testTag = "settings_removal_details_toggle",
+    ) {
+      Text(
+        text = stringResource(R.string.settings_removal_honest_note),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+      )
+    }
 
     if (removalState.errorMessage != null) {
       Text(

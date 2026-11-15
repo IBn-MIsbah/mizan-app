@@ -46,12 +46,12 @@ class ExampleRobolectricTest {
   @Test
   fun `first launch onboarding completes into dashboard and top level navigation works`() {
     composeTestRule.waitUntilTag("onboarding_screen_list")
-    composeTestRule.onNodeWithTag("onboarding_commitment_card").assertIsDisplayed()
+    composeTestRule.onNodeWithTag("onboarding_intro_card").assertIsDisplayed()
 
     composeTestRule
       .onNodeWithTag("onboarding_screen_list")
-      .performScrollToNode(hasTestTag("onboarding_complete_button"))
-    composeTestRule.onNodeWithTag("onboarding_complete_button").performClick()
+      .performScrollToNode(hasTestTag("onboarding_skip_button"))
+    composeTestRule.onNodeWithTag("onboarding_skip_button").performClick()
 
     composeTestRule.waitUntilTag("dashboard_empty_card")
     composeTestRule.onNodeWithTag("dashboard_empty_card").assertIsDisplayed()

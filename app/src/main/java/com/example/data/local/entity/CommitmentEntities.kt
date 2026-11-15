@@ -46,6 +46,8 @@ data class CommitmentRulesEntity(
   val websiteFilteringEnabled: Boolean = false,
   @ColumnInfo(name = "blocked_domain_categories_csv", defaultValue = "")
   val blockedDomainCategoriesCsv: String = "",
+  @ColumnInfo(name = "block_youtube_shorts", defaultValue = "0")
+  val blockYouTubeShorts: Boolean = false,
 )
 
 @Entity(

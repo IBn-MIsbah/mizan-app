@@ -16,7 +16,6 @@ import com.example.domain.repository.PersistenceResult
 import com.example.domain.repository.UserPreferencesRepository
 import com.example.domain.time.TimeProvider
 import dagger.hilt.android.qualifiers.ApplicationContext
-import java.net.Inet4Address
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
@@ -58,6 +57,9 @@ data class VpnFilterSnapshot(
   val datasetWarningMessage: String? = null,
   val lastError: String? = null,
   val lastUpdatedEpochMillis: Long? = null,
+  val forwardedQueryCount: Long = 0L,
+  val blockedQueryCount: Long = 0L,
+  val upstreamFailureCount: Long = 0L,
 )
 
 enum class VpnStartRequestOutcome {
@@ -92,6 +94,12 @@ interface VpnFilterMonitor {
   fun onTunnelStopped(stoppedByUser: Boolean)
 
   fun onTunnelError(message: String)
+
+  fun onDnsStatsUpdated(
+    forwardedCount: Long,
+    blockedCount: Long,
+    upstreamFailureCount: Long,
+  ) {}
 }
 
 @Singleton
@@ -119,6 +127,9 @@ constructor(
     val lastError: String? = null,
     val isPermissionPrepared: Boolean = false,
     val refreshTick: Int = 0,
+    val forwardedQueryCount: Long = 0L,
+    val blockedQueryCount: Long = 0L,
+    val upstreamFailureCount: Long = 0L,
   )
 
   private data class ObservedRepoState(
@@ -168,6 +179,9 @@ constructor(
             upstreamDnsCount = signals.upstreamDnsCount,
             lastError = signals.lastError,
             nowEpochMillis = timeProvider.currentWallClock().epochMillis,
+            forwardedQueryCount = signals.forwardedQueryCount,
+            blockedQueryCount = signals.blockedQueryCount,
+            upstreamFailureCount = signals.upstreamFailureCount,
           )
         }
         .collect { snapshot -> _vpnState.value = snapshot }
@@ -279,6 +293,9 @@ constructor(
         wasRevoked = false,
         permissionDenied = false,
         lastError = null,
+        forwardedQueryCount = 0L,
+        blockedQueryCount = 0L,
+        upstreamFailureCount = 0L,
         refreshTick = it.refreshTick + 1,
       )
     }
@@ -310,6 +327,9 @@ constructor(
         wasRevoked = !anotherVpnActive,
         anotherVpnActive = anotherVpnActive || refreshed.anotherVpnActive,
         lastError = null,
+        forwardedQueryCount = 0L,
+        blockedQueryCount = 0L,
+        upstreamFailureCount = 0L,
         refreshTick = refreshed.refreshTick + 1,
       )
   }
@@ -321,6 +341,9 @@ constructor(
         isStarting = false,
         isTunnelEstablished = false,
         lastError = null,
+        forwardedQueryCount = 0L,
+        blockedQueryCount = 0L,
+        upstreamFailureCount = 0L,
         refreshTick = refreshed.refreshTick + 1,
       )
   }
@@ -332,8 +355,25 @@ constructor(
         isStarting = false,
         isTunnelEstablished = false,
         lastError = message,
+        forwardedQueryCount = 0L,
+        blockedQueryCount = 0L,
+        upstreamFailureCount = 0L,
         refreshTick = refreshed.refreshTick + 1,
       )
+  }
+
+  override fun onDnsStatsUpdated(
+    forwardedCount: Long,
+    blockedCount: Long,
+    upstreamFailureCount: Long,
+  ) {
+    runtimeSignals.update {
+      it.copy(
+        forwardedQueryCount = forwardedCount,
+        blockedQueryCount = blockedCount,
+        upstreamFailureCount = upstreamFailureCount,
+      )
+    }
   }
 
   private fun readSystemSignals(current: InternalRuntimeSignals): InternalRuntimeSignals {
@@ -346,8 +386,9 @@ constructor(
 
     val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
     var anotherVpn = false
-    var privateDns = false
-    var dnsCount = 0
+    val rankedDnsConfigs = UnderlyingDnsResolver.discoverNetworkDnsConfigs(context)
+    val privateDns = rankedDnsConfigs.any { it.isPrivateDnsActive }
+    val dnsCount = rankedDnsConfigs.firstOrNull()?.dnsServers?.size ?: 0
 
     if (cm != null) {
       val networks =
@@ -363,17 +404,7 @@ constructor(
         val caps = runCatching { cm.getNetworkCapabilities(network) }.getOrNull() ?: continue
         if (caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)) {
           hasAnyVpnTransport = true
-        } else if (caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) {
-          val linkProps = runCatching { cm.getLinkProperties(network) }.getOrNull()
-          if (linkProps != null) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && linkProps.isPrivateDnsActive) {
-              privateDns = true
-            }
-            val ipv4Dns = linkProps.dnsServers.filterIsInstance<Inet4Address>()
-            if (ipv4Dns.isNotEmpty() && dnsCount == 0) {
-              dnsCount = ipv4Dns.size
-            }
-          }
+          break
         }
       }
 
@@ -407,7 +438,10 @@ constructor(
       upstreamDnsCount: Int,
       lastError: String?,
       nowEpochMillis: Long?,
-    ): VpnFilterSnapshot {
+    forwardedQueryCount: Long = 0L,
+    blockedQueryCount: Long = 0L,
+    upstreamFailureCount: Long = 0L,
+  ): VpnFilterSnapshot {
       val hasWebsiteRules =
         activeCommitment != null && activeCommitment.rules.hasConfiguredWebsiteFiltering()
 
@@ -457,6 +491,9 @@ constructor(
         datasetWarningMessage = datasetWarning,
         lastError = lastError,
         lastUpdatedEpochMillis = nowEpochMillis,
+        forwardedQueryCount = forwardedQueryCount,
+        blockedQueryCount = blockedQueryCount,
+        upstreamFailureCount = upstreamFailureCount,
       )
     }
   }

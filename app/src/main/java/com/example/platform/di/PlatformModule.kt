@@ -5,7 +5,9 @@ import com.example.domain.repository.InstalledAppRepository
 import com.example.platform.apps.PackageManagerInstalledAppRepository
 import com.example.platform.enforcement.AndroidBlockingUiLauncher
 import com.example.platform.enforcement.AppPackageName
+import com.example.platform.enforcement.AndroidYouTubeShortsFeedbackDisplayer
 import com.example.platform.enforcement.BlockingUiLauncher
+import com.example.platform.enforcement.YouTubeShortsFeedbackDisplayer
 import com.example.platform.filter.DatasetSyncController
 import com.example.platform.filter.DatasetUpdateScheduler
 import com.example.platform.filter.DefaultDatasetSyncController
@@ -63,6 +65,12 @@ abstract class PlatformBindingsModule {
   @Binds
   @Singleton
   abstract fun bindBlockingUiLauncher(impl: AndroidBlockingUiLauncher): BlockingUiLauncher
+
+  @Binds
+  @Singleton
+  abstract fun bindYouTubeShortsFeedbackDisplayer(
+    impl: AndroidYouTubeShortsFeedbackDisplayer
+  ): YouTubeShortsFeedbackDisplayer
 
   @Binds
   @Singleton
